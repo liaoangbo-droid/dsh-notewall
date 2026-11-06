@@ -1,0 +1,10 @@
+# dsh-notewall bundle patch: mounts the host half (routes + tools + store)
+# into the profile's loader tree. The browser half rides the package's
+# `dsh.client` manifest — the client registry serves lib/client.js under the
+# loader entry name, which must equal package.json `name`.
+#
+# Entry id `sticky-wall` is unique on this machine. Do NOT insert the same id
+# again in the profile patch: duplicate loader entry ids abort the whole tree.
+- insert:
+    - id: sticky-wall
+      name: 'dsh-notewall'

@@ -1,0 +1,64 @@
+{
+  "name": "dsh-notewall",
+  "description": "便签墙 (NoteWall) — a sticky-notes wall for DSH: capture ideas from the left rail, with rich text, images, freehand ink, auto-assigned pastel colors, drag-to-reorder, hover preview, per-note alarms, and one-click / scheduled delivery of a note into any session.",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-slots"
+      ],
+      "platform": "web"
+    }
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "^4.0.1"
+  },
+  "peerDependenciesMeta": {
+    "@deepseek-ai/cordis": {
+      "optional": true
+    }
+  },
+  "files": [
+    "lib",
+    "cordis.patch.yml",
+    "package.json",
+    "README.md"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/liaoangbo-droid/dsh-notewall.git"
+  },
+  "homepage": "https://github.com/liaoangbo-droid/dsh-notewall#readme",
+  "bugs": {
+    "url": "https://github.com/liaoangbo-droid/dsh-notewall/issues"
+  },
+  "author": "liaoangbo-droid",
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "notewall",
+    "sticky-notes",
+    "notes",
+    "memo",
+    "whiteboard",
+    "canvas",
+    "productivity"
+  ],
+  "scripts": {
+    "build": "node scripts/build-client.mjs",
+    "test": "node test/client-load.mjs && node test/host-e2e.mjs && node test/image-resize.mjs && node test/hover-origin.mjs"
+  }
+}

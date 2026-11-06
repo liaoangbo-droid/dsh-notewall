@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "policy": "dsh-plugin-naming/v1",
+  "plugin": {
+    "namespace": "plugin-designer",
+    "name": "sticky-wall",
+    "coordinate": "plugin-designer/sticky-wall",
+    "packageName": "dsh-notewall"
+  },
+  "names": {
+    "pluginNames": ["sticky-wall"],
+    "loaderIds": ["dsh-notewall"],
+    "services": [],
+    "tools": [
+      "sticky_note_create",
+      "sticky_note_list",
+      "sticky_note_update",
+      "sticky_note_delete"
+    ],
+    "commands": [],
+    "skills": [],
+    "skillProviders": [],
+    "events": [],
+    "settingsNamespaces": [],
+    "routes": ["/sticky-wall"]
+  }
+}

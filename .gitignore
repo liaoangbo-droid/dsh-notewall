@@ -1,0 +1,19 @@
+# 依赖
+node_modules/
+
+# 开发残留（不进入仓库）
+.backup/
+backups/
+scripts/*.mjs
+!scripts/build-client.mjs
+*.log
+*.tmp
+
+# 本地数据（绝不能提交：包含个人便签内容与服务器运行时信息）
+data.json
+boot-trace.jsonl
+client-diag.log
+
+# 系统
+.DS_Store
+Thumbs.db
