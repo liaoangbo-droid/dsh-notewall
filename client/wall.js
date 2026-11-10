@@ -18,6 +18,7 @@ import { NoteEditor } from './editor';
 import { WallSettings } from './settings';
 import { mediaUrl } from './api';
 import { pickAutoColor, resolveNewNoteColor } from './palette';
+import { t } from './strings.js';
 
 /** 默认墙配置（host 无数据时的兜底）。 */
 /* 拖拽诊断埋点：POST /sticky-wall/boot-trace，写入 boot-trace.jsonl 供排查 */
@@ -373,15 +374,15 @@ export function StickyWall({
   return (
     <div className="sw-root">
       <div className="sw-toolbar">
-        <span className="sw-title">便签墙</span>
-        <span className="sw-count">{notes.length} 张</span>
+        <span className="sw-title">{t('wall.title')}</span>
+        <span className="sw-count">{t('wall.count', { count: notes.length })}</span>
         {status ? <span className="sw-count" style={{ color: 'var(--dsh-warning, #b45309)' }}>{status}</span> : null}
         <span className="sw-spacer" />
         <button type="button" className="sw-btn primary" onClick={() => openEditor(null)}>
-          ＋ 新便签
+          {t('wall.newNote')}
         </button>
-        <button type="button" className="sw-btn" onClick={() => setShowSettings(true)} title="墙设置">
-          ⚙ 墙设置
+        <button type="button" className="sw-btn" onClick={() => setShowSettings(true)} title={t('wall.settings')}>
+          ⚙ {t('wall.settings')}
         </button>
       </div>
 
@@ -393,9 +394,9 @@ export function StickyWall({
       <div className="sw-body">
       {dropSessions ? (
         <div className="sw-dropbar" onDragOver={(event) => event.preventDefault()}>
-          <div className="sw-dropbar-title">松手发送到</div>
+          <div className="sw-dropbar-title">{t('wall.dropTitle')}</div>
           {dropSessions.length === 0 ? (
-            <div className="sw-dropbar-empty">没有可用会话</div>
+            <div className="sw-dropbar-empty">{t('wall.dropEmpty')}</div>
           ) : (
             dropSessions.map((item) => (
               <div
@@ -413,7 +414,7 @@ export function StickyWall({
                   handleSessionDrop(item);
                 }}
               >
-                {item.title || "（未命名会话）"}
+                {item.title || t('wall.unnamedSession')}
               </div>
             ))
           )}
@@ -434,9 +435,9 @@ export function StickyWall({
       >
         {notes.length === 0 ? (
           <div className="sw-empty">
-            <strong>这面墙还是空的</strong>
-            <span>点右上角「＋ 新便签」写下第一个想法；也可以在会话里让小助手记一条。</span>
-            <span className="sw-muted">便签会自动保存，关掉再打开也还在。</span>
+            <strong>{t('wall.emptyTitle')}</strong>
+            <span>{t('wall.emptyHint')}</span>
+            <span className="sw-muted">{t('wall.emptyAutoSave')}</span>
           </div>
         ) : (
           <div
@@ -618,13 +619,13 @@ export function StickyWall({
               gap: 14,
             }}
           >
-            <strong style={{ fontSize: 15 }}>删除便签</strong>
+            <strong style={{ fontSize: 15 }}>{t('wall.deleteTitle')}</strong>
             <p style={{ margin: 0, fontSize: 13, lineHeight: 1.6, opacity: 0.85 }}>
-              删除「{pendingDelete.title || '这张便签'}」？此操作不可撤销。
+              {t('wall.deleteConfirm', { title: pendingDelete.title || t('wall.deleteThisOne') })}
             </p>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
               <button type="button" className="sw-btn" onClick={() => setPendingDelete(null)}>
-                取消
+                {t('common.cancel')}
               </button>
               <button
                 type="button"
@@ -635,7 +636,7 @@ export function StickyWall({
                   void onDelete(target);
                 }}
               >
-                删除
+                {t('common.delete')}
               </button>
             </div>
           </div>

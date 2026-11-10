@@ -1,7 +1,7 @@
 {
   "name": "dsh-notewall",
-  "description": "便签墙 (NoteWall) — a sticky-notes wall for DSH: capture ideas from the left rail, with rich text, images, freehand ink, auto-assigned pastel colors, drag-to-reorder, hover preview, per-note alarms, and one-click / scheduled delivery of a note into any session.",
-  "version": "0.1.0",
+  "description": "便签墙 (NoteWall) — a sticky-notes wall for DSH: capture ideas from the left rail, with rich text, images, freehand ink, auto-assigned pastel colors, drag-to-reorder, hover preview, per-note alarms, one-click / scheduled delivery of a note into any session, and full zh/en i18n.",
+  "version": "0.2.0",
   "type": "module",
   "main": "lib/index.js",
   "exports": {

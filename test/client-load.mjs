@@ -165,7 +165,9 @@ check('registered main panel', bySlot('main').length === 1 && bySlot('main')[0].
 check('registered sidebar entry', bySlot('sidebar.panellist').length === 1);
 check('sidebar entry has id + label', (() => {
   const entry = bySlot('sidebar.panellist')[0]?.options;
-  return entry?.id === 'sticky-wall' && typeof entry?.label === 'function' && entry.label() === '便签墙';
+  // 文案走 i18n：node 环境没有 navigator，会落到英文；两种都接受。
+  const label = typeof entry?.label === 'function' ? entry.label() : null;
+  return entry?.id === 'sticky-wall' && ['便签墙', 'Sticky Wall'].includes(label);
 })());
 check('registered overlay dock', bySlot('shell.overlay').length === 1);
 check('all registrations carry a component', registrations.every((entry) => typeof entry.Component === 'function'));

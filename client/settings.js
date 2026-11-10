@@ -1,5 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { autoNoteColor } from './palette';
+import { getLocalePref, setLocalePref, t } from './strings.js';
+
+/** 切换语言：存下偏好后整页重载——文案散落在各面板里，重载是最稳的更新方式。 */
+function changeLocale(next) {
+  setLocalePref(next);
+  setTimeout(() => {
+    try {
+      location.reload();
+    } catch {
+      // 极端环境下 reload 不可用，偏好已存，下次打开生效
+    }
+  }, 80);
+}
+
 
 /**
  * 墙设置面板（dsh-notewall / client/settings.js）
@@ -87,7 +101,7 @@ function readAsDataURL(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : '');
-    reader.onerror = () => reject(reader.error || new Error('读取图片失败'));
+    reader.onerror = () => reject(reader.error || new Error(t('error.readImage')));
     reader.readAsDataURL(file);
   });
 }
@@ -345,7 +359,7 @@ export function WallSettings({ wall, palette, onChange, onClose, uploadImage }) 
   // ---- 图片上传 ----
   const pickFile = useCallback(() => {
     if (typeof uploadImage !== 'function') {
-      setError('当前环境不支持上传图片');
+      setError(t('error.uploadUnsupported'));
       return;
     }
     if (fileRef.current) fileRef.current.click();
@@ -355,21 +369,21 @@ export function WallSettings({ wall, palette, onChange, onClose, uploadImage }) 
     async (file) => {
       if (!file) return;
       if (!/^image\//.test(file.type || '')) {
-        setError('请选择图片文件');
+        setError(t('error.chooseImageFile'));
         return;
       }
       setError('');
       setBusy(true);
       try {
         const dataUrl = await readAsDataURL(file);
-        if (!dataUrl) throw new Error('读取图片失败');
+        if (!dataUrl) throw new Error(t('error.readImage'));
         const res = await uploadImage(dataUrl);
         const id = res && res.id != null ? String(res.id) : '';
-        if (!id) throw new Error('上传未返回图片 id');
+        if (!id) throw new Error(t('error.noImageId'));
         setPreview({ id, src: (res && res.url) || dataUrl });
         setBg({ kind: 'image', mediaId: id });
       } catch (err) {
-        setError((err && err.message) || '上传失败');
+        setError((err && err.message) || t('error.uploadImage'));
       } finally {
         setBusy(false);
       }
@@ -452,7 +466,7 @@ export function WallSettings({ wall, palette, onChange, onClose, uploadImage }) 
   return (
     <div
       role="dialog"
-      aria-label="墙设置"
+      aria-label={t('settings.title')}
       style={panelStyle}
       onWheel={stop}
       onPointerDown={stop}
@@ -462,7 +476,7 @@ export function WallSettings({ wall, palette, onChange, onClose, uploadImage }) 
       {/* 标题栏 */}
       <div style={headerStyle}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, minWidth: 0 }}>
-          <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: 0.2 }}>墙设置</span>
+          <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: 0.2 }}>{t('settings.title')}</span>
           <span
             style={{
               fontSize: 10.5,
@@ -472,13 +486,13 @@ export function WallSettings({ wall, palette, onChange, onClose, uploadImage }) 
               textOverflow: 'ellipsis',
             }}
           >
-            实时生效
+            {t('settings.live')}
           </span>
         </div>
         <button
           type="button"
-          aria-label="关闭墙设置"
-          title="关闭"
+          aria-label={t('settings.closeAria')}
+          title={t('common.close')}
           onClick={onClose}
           style={{
             width: 26,
@@ -503,15 +517,47 @@ export function WallSettings({ wall, palette, onChange, onClose, uploadImage }) 
 
       {/* 内容 */}
       <div style={bodyStyle} className="dsh-sticky-wall-settings-body">
+        {/* 语言 */}
+        <Section title={t('settings.language')} hint={t('settings.langHint')}>
+          <div style={{ display: 'flex', gap: 6 }}>
+            {[
+              { key: 'system', label: t('settings.langSystem') },
+              { key: 'zh', label: t('settings.langZh') },
+              { key: 'en', label: t('settings.langEn') },
+            ].map((opt) => {
+              const active = getLocalePref() === opt.key;
+              return (
+                <button
+                  key={opt.key}
+                  type="button"
+                  onClick={() => changeLocale(opt.key)}
+                  style={{
+                    flex: 1,
+                    padding: '7px 10px',
+                    borderRadius: 8,
+                    fontSize: 12,
+                    cursor: 'pointer',
+                    border: active ? '1px solid #2563eb' : '1px solid rgba(0,0,0,.14)',
+                    background: active ? '#2563eb' : 'transparent',
+                    color: active ? '#fff' : 'inherit',
+                  }}
+                >
+                  {opt.label}
+                </button>
+              );
+            })}
+          </div>
+        </Section>
+
         {/* 新建便签颜色 */}
         <Section
-          title="新建便签颜色"
-          hint={(draft.newNoteColor?.mode ?? 'auto') === 'fixed' ? '固定' : '随机'}
+          title={t('settings.newNoteColor')}
+          hint={(draft.newNoteColor?.mode ?? 'auto') === 'fixed' ? t('settings.modeFixed') : t('settings.modeRandom')}
         >
           <div style={{ display: 'flex', gap: 6, marginBottom: 9 }}>
             {[
-              { key: 'auto', label: '随机配色' },
-              { key: 'fixed', label: '固定一种颜色' },
+              { key: 'auto', label: t('settings.modeAuto') },
+              { key: 'fixed', label: t('settings.modeFixedColor') },
             ].map((opt) => {
               const active = (draft.newNoteColor?.mode ?? 'auto') === opt.key;
               return (
@@ -565,22 +611,22 @@ export function WallSettings({ wall, palette, onChange, onClose, uploadImage }) 
             </div>
           ) : (
             <div style={{ fontSize: 11.5, opacity: 0.7, lineHeight: 1.5 }}>
-              按黄金角自动分配色相，墙上的便签不会撞色。
+              {t('settings.goldenHint')}
             </div>
           )}
         </Section>
 
         {/* 背景 */}
-        <Section title="背景" hint={bg.kind === 'none' ? '透明' : null}>
+        <Section title={t('settings.background')} hint={bg.kind === 'none' ? t('settings.bgTransparent') : null}>
           <div
             role="group"
-            aria-label="背景类型"
+            aria-label={t('settings.bgTypeAria')}
             style={{ display: 'flex', gap: 6, marginBottom: 9 }}
           >
             {[
-              ['color', '纯色'],
-              ['image', '图片'],
-              ['none', '无'],
+              ['color', t('settings.bgSolid')],
+              ['image', t('settings.bgImage')],
+              ['none', t('settings.bgNone')],
             ].map(([kind, label]) => (
               <button
                 key={kind}
@@ -603,7 +649,7 @@ export function WallSettings({ wall, palette, onChange, onClose, uploadImage }) 
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                 <input
                   type="color"
-                  aria-label="背景颜色"
+                  aria-label={t('settings.bgColorAria')}
                   value={bg.color}
                   onChange={(e) => setBg({ color: e.target.value })}
                   style={{
@@ -633,7 +679,7 @@ export function WallSettings({ wall, palette, onChange, onClose, uploadImage }) 
                     key={color}
                     type="button"
                     title={color}
-                    aria-label={'背景色 ' + color}
+                    aria-label={t('settings.bgColorOptionAria', { color })}
                     onClick={() => setBg({ color })}
                     style={{
                       width: 24,
@@ -662,7 +708,7 @@ export function WallSettings({ wall, palette, onChange, onClose, uploadImage }) 
                   disabled={busy}
                   style={{ ...ghostBtn, flex: '1 1 auto', opacity: busy ? 0.6 : 1 }}
                 >
-                  {busy ? '上传中…' : hasImage ? '更换图片' : '选择图片'}
+                  {busy ? t('settings.uploading') : hasImage ? t('settings.replaceImage') : t('settings.chooseImage')}
                 </button>
                 <button
                   type="button"
@@ -671,14 +717,14 @@ export function WallSettings({ wall, palette, onChange, onClose, uploadImage }) 
                     setBg({ kind: 'color', mediaId: null });
                   }}
                   disabled={!mediaId}
-                  title="删除背景图"
+                  title={t('settings.deleteBg')}
                   style={{
                     ...ghostBtn,
                     color: mediaId ? C.danger : C.sub,
                     opacity: mediaId ? 1 : 0.5,
                   }}
                 >
-                  删除
+                  {t('common.delete')}
                 </button>
               </div>
               <input
@@ -694,7 +740,7 @@ export function WallSettings({ wall, palette, onChange, onClose, uploadImage }) 
               />
               {!hasImage ? (
                 <div style={{ fontSize: 11.5, color: C.sub, marginBottom: 8 }}>
-                  还没有选择背景图。
+                  {t('settings.noImage')}
                 </div>
               ) : (
                 <div
@@ -710,7 +756,7 @@ export function WallSettings({ wall, palette, onChange, onClose, uploadImage }) 
                 >
                   <img
                     src={previewSrc}
-                    alt="背景图预览"
+                    alt={t('settings.bgPreviewAlt')}
                     style={{
                       width: '100%',
                       height: '100%',
@@ -738,7 +784,7 @@ export function WallSettings({ wall, palette, onChange, onClose, uploadImage }) 
           {/* 遮罩强度 */}
           {bg.kind === 'image' ? (
             <SliderRow
-              label="遮罩强度"
+              label={t('settings.dim')}
               value={bg.dim}
               min={0}
               max={1}
@@ -797,27 +843,27 @@ export function WallSettings({ wall, palette, onChange, onClose, uploadImage }) 
               }}
             >
               {bg.kind === 'none'
-                ? '透明（露出应用主题）'
+                ? t('settings.previewTransparent')
                 : bg.kind === 'color'
-                  ? '纯色背景'
-                  : '图片背景 · 遮罩 ' + Math.round(bg.dim * 100) + '%'}
+                  ? t('settings.previewSolid')
+                  : t('settings.previewImage', { percent: Math.round(bg.dim * 100) })}
             </div>
           </div>
         </Section>
 
         {/* 布局 */}
-        <Section title="布局">
+        <Section title={t('settings.layout')}>
           <SliderRow
-            label="同屏列数"
+            label={t('settings.columns')}
             value={draft.columns}
             min={1}
             max={8}
             step={1}
-            display={draft.columns + ' 列'}
+            display={t('settings.columnsUnit', { n: draft.columns })}
             onInput={(v) => setField('columns', v)}
           />
           <SliderRow
-            label="卡片宽度"
+            label={t('settings.cardWidth')}
             value={draft.cardWidth}
             min={160}
             max={520}
@@ -826,7 +872,7 @@ export function WallSettings({ wall, palette, onChange, onClose, uploadImage }) 
             onInput={(v) => setField('cardWidth', v)}
           />
           <SliderRow
-            label="卡片高度"
+            label={t('settings.cardHeight')}
             value={draft.cardHeight}
             min={120}
             max={560}
@@ -835,7 +881,7 @@ export function WallSettings({ wall, palette, onChange, onClose, uploadImage }) 
             onInput={(v) => setField('cardHeight', v)}
           />
           <SliderRow
-            label="卡片间隙"
+            label={t('settings.cardGap')}
             value={draft.gap}
             min={0}
             max={80}
@@ -846,9 +892,9 @@ export function WallSettings({ wall, palette, onChange, onClose, uploadImage }) 
         </Section>
 
         {/* 预览 / 字号 */}
-        <Section title="预览">
+        <Section title={t('settings.preview')}>
           <SliderRow
-            label="hover 放大倍数"
+            label={t('settings.hoverScale')}
             value={draft.hoverScale}
             min={1}
             max={3}
@@ -857,7 +903,7 @@ export function WallSettings({ wall, palette, onChange, onClose, uploadImage }) 
             onInput={(v) => setField('hoverScale', v)}
           />
           <SliderRow
-            label="墙整体字号"
+            label={t('settings.fontSize')}
             value={draft.fontSize}
             min={10}
             max={28}
@@ -888,7 +934,7 @@ export function WallSettings({ wall, palette, onChange, onClose, uploadImage }) 
       {/* 底栏 */}
       <div style={footerStyle}>
         <button type="button" onClick={resetAll} style={{ ...ghostBtn, flex: '1 1 auto' }}>
-          恢复默认
+          {t('settings.reset')}
         </button>
         <button
           type="button"
@@ -901,7 +947,7 @@ export function WallSettings({ wall, palette, onChange, onClose, uploadImage }) 
             color: '#fff',
           }}
         >
-          完成
+          {t('settings.done')}
         </button>
       </div>
     </div>

@@ -14,6 +14,7 @@
 
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { describeNote, normalizeSessionList, noteToText } from './session-bridge.js';
+import { t } from './strings.js';
 import { api, readFileAsDataUrl } from './api';
 import { injectStyles } from './theme';
 import { StickyWall } from './wall';
@@ -81,7 +82,7 @@ function checkAlarms(notes) {
     if (shown.has(note.id)) continue;
     state.toasts.push({
       id: note.id,
-      title: note.title || '（空便签）',
+      title: note.title || t('card.emptyNote'),
       text: plainText(note.html).slice(0, 200),
       at: note.alarmAt,
     });
@@ -130,7 +131,7 @@ async function pull(options = {}) {
     }
     emit();
   } catch (error) {
-    state.status = `连接便签服务失败：${error?.message ?? error}`;
+    state.status = t('error.connectFailed', { message: error?.message ?? error });
     emit();
   } finally {
     inFlight = false;
@@ -253,7 +254,7 @@ const actions = {
    */
   async listSessions() {
     const svc = pluginCtx?.get?.('sessions') ?? pluginCtx?.sessions ?? null;
-    if (!svc) throw new Error('ctx 上拿不到 sessions 服务');
+    if (!svc) throw new Error(t('error.noSessionsService'));
 
     const summaries = svc.manager?.summaries;
     if (!Array.isArray(summaries) || summaries.length === 0) {
@@ -300,7 +301,7 @@ const actions = {
       if (parentRef) continue;
 
       let title = deepFind(raw, titleStrict, 3) || deepFind(raw, titleLoose, 3);
-      const workspace = deepFind(raw, wsStrict, 3) || deepFind(raw, wsLoose, 3) || '（未归入工作区）';
+      const workspace = deepFind(raw, wsStrict, 3) || deepFind(raw, wsLoose, 3) || t('workspace.ungrouped');
       let updatedAt =
         Number(raw.updatedAt ?? raw.lastActiveAt ?? raw.updated_at ?? raw.createdAt ?? 0) || 0;
       if (!updatedAt) {
@@ -348,12 +349,12 @@ const actions = {
   async insertToSession(payload) {
     const note = payload?.note ?? null;
     const session = payload?.session ?? null;
-    if (!session?.id) throw new Error('请先选择目标会话');
+    if (!session?.id) throw new Error(t('deliver.needSession'));
     const text = noteToText(note?.html ?? '');
-    if (!String(text).trim()) throw new Error('这张便签是空的');
+    if (!String(text).trim()) throw new Error(t('error.emptyNote'));
     // noteId 让宿主在投递成功后把 delivery 写回便签，卡片才能变灰并显示实际发送时间。
     const result = await api.insert({ sessionId: session.id, text, noteId: note?.id ?? null });
-    if (!result?.ok) throw new Error(result?.error ?? '发送失败');
+    if (!result?.ok) throw new Error(result?.error ?? t('error.sendFailed'));
     await refreshNow();
     return result;
   },
@@ -366,7 +367,7 @@ const actions = {
       sessionTitle: session.title || '',
       at,
       prompt: describeNote(note, { mode: 'schedule', at }),
-      title: '便签提醒 · ' + (note.title || '（无标题）'),
+      title: t('note.toastTitle', { title: note.title || t('prompt.noTitle') }),
     });
     await refreshNow();
   },
@@ -463,14 +464,14 @@ function AlarmDock(props) {
     <div className="sw-toasts">
       {toasts.map((toast) => (
         <div className="sw-toast" key={toast.id} role="alert">
-          <div className="sw-toast-title">⏰ 便签提醒 · {formatAlarm(toast.at)}</div>
+          <div className="sw-toast-title">⏰ {t('note.toastTitle', { title: formatAlarm(toast.at) })}</div>
           <div className="sw-toast-text">{toast.title}{toast.text ? `\n${toast.text}` : ''}</div>
           <div className="sw-toast-actions">
             <button type="button" className="sw-btn ghost" onClick={() => void actions.dismissAlarm(toast.id)}>
-              关闭
+              {t('common.close')}
             </button>
             <button type="button" className="sw-btn primary" onClick={() => actions.openNote(toast.id, ctx)}>
-              查看便签
+              {t('note.viewNote')}
             </button>
           </div>
         </div>
@@ -598,7 +599,7 @@ function applyImpl(ctx) {
   safeSlot('sidebar.panellist', () =>
     ctx.slots.inject('sidebar.panellist', () =>
       ctx.slots.register(
-        { name: 'sidebar.panellist', id: PANEL_ID, order: PANEL_ORDER, label: () => '便签墙' },
+        { name: 'sidebar.panellist', id: PANEL_ID, order: PANEL_ORDER, label: () => t('wall.title') },
         StickyWallIcon,
       ),
     ),

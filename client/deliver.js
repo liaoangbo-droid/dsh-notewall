@@ -9,6 +9,7 @@
  */
 import { useMemo, useState } from 'react';
 import { formatTimestamp } from './session-bridge.js';
+import { t } from './strings.js';
 
 const s = {
   mask: {
@@ -116,9 +117,12 @@ const s = {
   },
   hint: { fontSize: 11, opacity: 0.6, marginTop: 6, lineHeight: 1.5 },
   error: { fontSize: 12, color: '#c0392b', marginTop: 8, lineHeight: 1.5, wordBreak: 'break-word' },
+  peakOff: { fontSize: 12, color: '#2f6b45', background: '#eef8f1', border: '1px solid #b9dfc9', borderRadius: 6, padding: '5px 8px', marginTop: 8, lineHeight: 1.4 },
+  peakOn: { fontSize: 12, color: '#8a5a1f', background: '#fff8e6', border: '1px solid #ffdfa0', borderRadius: 6, padding: '5px 8px', marginTop: 8, lineHeight: 1.4 },
   block: { fontSize: 12, color: '#8a6d1f', background: '#fff8e1', border: '1px solid #ffe0a3', borderRadius: 6, padding: '6px 8px', marginTop: 8, lineHeight: 1.5 },
   quickRow: { display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6, marginBottom: 2 },
   quickBtn: { fontSize: 12, padding: '4px 9px', borderRadius: 6, border: '1px solid #d8d2c4', background: '#fffdf6', color: '#5b5346', cursor: 'pointer', lineHeight: 1.2 },
+  quickBtnOff: { fontSize: 12, padding: '4px 9px', borderRadius: 6, border: '1px solid #e8e4da', background: '#f5f3ee', color: '#b0aa9e', cursor: 'not-allowed', lineHeight: 1.2 },
   picked: {
     marginTop: 8,
     fontSize: 12,
@@ -130,6 +134,20 @@ const s = {
     whiteSpace: 'nowrap',
   },
 };
+
+/**
+ * DeepSeek 官方定价的时段判定（2026-11 版）：
+ *   北京时间周一至周五（不含中国法定节假日）9:00-12:00、14:00-18:00 = 高峰
+ *   其余全部（午间 12-14、夜间、周末、法定节假日）= 空闲（价格减半）
+ * 法定节假日没有本地日历可查，这里只按周末 + 工作日时段判断。
+ */
+function isOffPeak(date) {
+  const day = date.getDay(); // 0=周日, 6=周六
+  if (day === 0 || day === 6) return true;
+  const hours = date.getHours() + date.getMinutes() / 60;
+  const isPeak = (hours >= 9 && hours < 12) || (hours >= 14 && hours < 18);
+  return !isPeak;
+}
 
 function toLocalInput(date) {
   const pad = (n) => String(n).padStart(2, '0');
@@ -161,7 +179,7 @@ export function DeliverDialog(props) {
   const groups = useMemo(() => {
     const map = new Map();
     for (const item of all) {
-      const ws = item.workspace || '（未分工作区）';
+      const ws = item.workspace || t('deliver.noWorkspace');
       if (!map.has(ws)) map.set(ws, []);
       map.get(ws).push(item);
     }
@@ -191,13 +209,13 @@ export function DeliverDialog(props) {
 
   // 为什么现在点不动：以前这里静默 return，用户只看到「点了没反应」。
   const blockReason = busy
-    ? '正在发送，请稍候…'
+    ? t('deliver.busy')
     : sessionId === ''
-      ? '请先选择一个目标会话'
+      ? t('deliver.needSession')
       : mode === 'schedule' && !Number.isFinite(atMs)
-        ? '发送时间无效——点下面的快捷按钮，或重新选一个时间'
+        ? t('deliver.timeMalformed')
         : mode === 'schedule' && atMs <= Date.now()
-          ? '发送时间已经过去了，请重新选择'
+          ? t('deliver.timePast')
           : '';
 
   // 快捷时间：串流 WebView 里原生 datetime 选择器常常弹不出来，
@@ -206,6 +224,15 @@ export function DeliverDialog(props) {
     const d = new Date(Date.now() + minutes * 60 * 1000);
     d.setSeconds(0, 0);
     setAt(toLocalInput(d));
+  }
+  /** 今天的某个整点（本地时区）。 */
+  function todayAt(hour) {
+    const d = new Date();
+    d.setHours(hour, 0, 0, 0);
+    return d;
+  }
+  function quickToday(hour) {
+    setAt(toLocalInput(todayAt(hour)));
   }
   function quickTomorrow() {
     const d = new Date();
@@ -223,14 +250,14 @@ export function DeliverDialog(props) {
   const activeGroup = groups.find((g) => g.workspace === activeWs) || null;
 
   return (
-    <div style={s.mask} role="dialog" aria-label="发送便签到会话">
+    <div style={s.mask} role="dialog" aria-label={t('deliver.ariaSend')}>
       <div style={s.card}>
         <div style={s.head}>
-          <span>发送到会话</span>
+          <span>{t('deliver.title')}</span>
           <button
             type="button"
             style={{ border: 'none', background: 'transparent', fontSize: 18, cursor: 'pointer', lineHeight: 1 }}
-            aria-label="关闭"
+            aria-label={t('deliver.ariaClose')}
             onClick={onClose}
           >
             ×
@@ -242,7 +269,7 @@ export function DeliverDialog(props) {
             <>
               <div style={s.label}>
                 <button type="button" style={s.linkBtn} onClick={() => setActiveWs(null)}>
-                  ← 返回工作区
+                  {t('deliver.back')}
                 </button>
                 <span style={{ marginLeft: 8, opacity: 0.7 }}>{activeGroup.workspace}</span>
               </div>
@@ -266,7 +293,7 @@ export function DeliverDialog(props) {
           ) : (
             <>
               <div style={s.label}>
-                选择工作区（{groups.length} 个工作区 / {all.length} 个会话）
+                {t('deliver.pickWorkspace', { workspaces: groups.length, sessions: all.length })}
               </div>
               {groups.length > 0 ? (
                 <div style={s.list}>
@@ -288,7 +315,7 @@ export function DeliverDialog(props) {
                 </div>
               ) : (
                 <div style={{ ...s.hint, padding: '10px 0' }}>
-                  没读到会话列表。可能是当前页面还没加载会话，或摘要里没有可用字段。
+                  {t('deliver.noSessions')}
                 </div>
               )}
             </>
@@ -296,27 +323,27 @@ export function DeliverDialog(props) {
 
           {current ? (
             <div style={s.picked}>
-              已选：{current.workspace} / {current.title}
+              {t('deliver.current', { workspace: current.workspace, title: current.title })}
             </div>
           ) : null}
 
-          <div style={s.label}>发送方式</div>
+          <div style={s.label}>{t('deliver.mode')}</div>
           <div style={s.modes}>
             <button type="button" style={s.mode(mode === 'insert')} onClick={() => setMode('insert')}>
-              <strong>直接发送</strong>
+              <strong>{t('deliver.modeInsert')}</strong>
               <br />
-              <span style={{ opacity: 0.7 }}>立刻发到该会话（约 2 秒）</span>
+              <span style={{ opacity: 0.7 }}>{t('deliver.modeInsertHint')}</span>
             </button>
             <button type="button" style={s.mode(mode === 'schedule')} onClick={() => setMode('schedule')}>
-              <strong>定时发送</strong>
+              <strong>{t('deliver.modeSchedule')}</strong>
               <br />
-              <span style={{ opacity: 0.7 }}>到点自动发到该会话</span>
+              <span style={{ opacity: 0.7 }}>{t('deliver.modeScheduleHint')}</span>
             </button>
           </div>
 
           {mode === 'schedule' ? (
             <>
-              <div style={s.label}>发送时间</div>
+              <div style={s.label}>{t('deliver.timeLabel')}</div>
               <input
                 type="datetime-local"
                 style={s.input}
@@ -324,19 +351,54 @@ export function DeliverDialog(props) {
                 onChange={(event) => setAt(event.target.value)}
               />
               <div style={s.quickRow}>
-                <button type="button" style={s.quickBtn} onClick={() => quickSet(5)}>+5 分钟</button>
-                <button type="button" style={s.quickBtn} onClick={() => quickSet(30)}>+30 分钟</button>
-                <button type="button" style={s.quickBtn} onClick={() => quickSet(60)}>+1 小时</button>
-                <button type="button" style={s.quickBtn} onClick={quickTomorrow}>明天 9:00</button>
+                {(() => {
+                  const now = Date.now();
+                  const items = [
+                    { label: t('deliver.quick5'), run: () => quickSet(5) },
+                    { label: t('deliver.quick30'), run: () => quickSet(30) },
+                    { label: t('deliver.quick60'), run: () => quickSet(60) },
+                    // 12:00 / 18:00 是 DeepSeek 定价里的时段分界点。
+                    { label: t('deliver.quickNoon'), run: () => quickToday(12), at: todayAt(12).getTime() },
+                    { label: t('deliver.quickEvening'), run: () => quickToday(18), at: todayAt(18).getTime() },
+                    { label: t('deliver.quickTomorrow'), run: quickTomorrow },
+                  ];
+                  return items.map((item) => {
+                    // 今天已经过去的整点：直接禁用，别让用户选到一个必然被拒的时间。
+                    const past = typeof item.at === 'number' && now >= item.at;
+                    return (
+                      <button
+                        key={item.label}
+                        type="button"
+                        style={past ? s.quickBtnOff : s.quickBtn}
+                        disabled={past}
+                        title={past ? t('deliver.quickPastTitle') : undefined}
+                        onClick={item.run}
+                      >
+                        {item.label}
+                        {past ? t('deliver.quickPast') : ''}
+                      </button>
+                    );
+                  });
+                })()}
+              </div>
+              <div style={s.hint}>
+                {t('deliver.ruleNote')}
               </div>
               <div style={s.hint}>
                 {Number.isFinite(atMs)
-                  ? '将在 ' + formatTimestamp(atMs) + ' 自动发送；卡片会显示 ⏰，可随时取消。'
-                  : '上面的时间框没取到值——直接用快捷按钮。'}
+                  ? t('deliver.timeWillSend', { time: formatTimestamp(atMs) })
+                  : t('deliver.timeNoValue')}
               </div>
+              {Number.isFinite(atMs) && mode === 'schedule' ? (
+                <div style={isOffPeak(new Date(atMs)) ? s.peakOff : s.peakOn}>
+                  {isOffPeak(new Date(atMs))
+                    ? t('deliver.offPeak')
+                    : t('deliver.onPeak')}
+                </div>
+              ) : null}
             </>
           ) : (
-            <div style={s.hint}>点发送后约 2 秒，内容会作为一条消息发到该会话。</div>
+            <div style={s.hint}>{t('deliver.insertHint')}</div>
           )}
 
           {error ? <div style={s.error}>{error}</div> : null}
@@ -345,14 +407,14 @@ export function DeliverDialog(props) {
 
         <div style={s.foot}>
           <button type="button" style={s.btn(false)} onClick={onClose}>
-            取消
+            {t('common.cancel')}
           </button>
           <button
             type="button"
             style={{ ...s.btn(true), opacity: canSubmit ? 1 : 0.5, cursor: canSubmit ? 'pointer' : 'not-allowed' }}
             onClick={submit}
           >
-            {busy ? '处理中…' : mode === 'insert' ? '立即发送' : '定时发送'}
+            {busy ? t('deliver.submitBusy') : mode === 'insert' ? t('deliver.submitInsert') : t('deliver.submitSchedule')}
           </button>
         </div>
       </div>

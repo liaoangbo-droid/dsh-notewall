@@ -9,6 +9,7 @@
  *
  * @module dsh-notewall/client/api
  */
+import { hasKey, t } from './strings.js';
 
 /** 路由前缀，必须与 lib/index.js 的 API_PREFIX 一致。 */
 export const BASE = '/sticky-wall';
@@ -34,7 +35,10 @@ async function request(path, options = {}) {
     payload = null;
   }
   if (!response.ok) {
-    const message = payload?.error ?? `请求失败（HTTP ${response.status}）`;
+    const key = payload && payload.code ? `error.${payload.code}` : null;
+    const message = key && hasKey(key)
+      ? t(key)
+      : payload?.error ?? t('error.requestFailed', { status: response.status });
     const error = new Error(message);
     error.status = response.status;
     throw error;
@@ -66,7 +70,7 @@ export const api = {
    */
   async sessions() {
     const response = await fetch('/api/sessions', { credentials: 'same-origin' });
-    if (!response.ok) throw new Error('读取会话列表失败（HTTP ' + response.status + '）');
+    if (!response.ok) throw new Error(t('error.readSessions', { status: response.status }));
     const payload = await response.json();
     if (Array.isArray(payload)) return payload;
     if (Array.isArray(payload?.sessions)) return payload.sessions;
@@ -128,7 +132,7 @@ export function readFileAsDataUrl(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result ?? ''));
-    reader.onerror = () => reject(reader.error ?? new Error('读取文件失败'));
+    reader.onerror = () => reject(reader.error ?? new Error(t('error.readFile')));
     reader.readAsDataURL(file);
   });
 }

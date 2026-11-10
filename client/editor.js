@@ -30,6 +30,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { t } from './strings.js';
 
 import {
   DEFAULT_PALETTE,
@@ -175,7 +176,7 @@ function readFileAsDataUrl(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result || ''));
-    reader.onerror = () => reject(reader.error || new Error('读取文件失败'));
+    reader.onerror = () => reject(reader.error || new Error(t('error.readFile')));
     reader.readAsDataURL(file);
   });
 }
@@ -727,7 +728,7 @@ function ImageResizeOverlay(props) {
         <span
           key={item.corner}
           role="presentation"
-          aria-label={'缩放图片 ' + item.corner}
+          aria-label={t('editor.zoomImage', { corner: item.corner })}
           onPointerDown={handlePointerDown(item.corner)}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerEnd}
@@ -754,8 +755,8 @@ function ImageResizeOverlay(props) {
       ))}
       <button
         type="button"
-        title="删除这张图片"
-        aria-label="删除这张图片"
+        title={t('editor.deleteImage')}
+        aria-label={t('editor.deleteImage')}
         onPointerDown={(event) => {
           if (event.cancelable) event.preventDefault();
           event.stopPropagation();
@@ -1212,19 +1213,19 @@ export function NoteEditor(props) {
       if (!dataUrl) return;
       const upload = uploadRef.current;
       if (typeof upload !== 'function') {
-        setHint('图片上传不可用');
+        setHint(t('editor.uploadUnavailable'));
         return;
       }
-      setHint('图片上传中…');
+      setHint(t('editor.uploading'));
       try {
         const result = await upload(dataUrl);
         const url = result && result.url;
-        if (!url) throw new Error('上传接口未返回 url');
+        if (!url) throw new Error(t('editor.uploadNoUrl'));
         insertImageUrl(url);
         setHint(null);
       } catch (err) {
         if (!mountedRef.current) return;
-        setHint('图片上传失败：' + (err && err.message ? err.message : String(err)));
+        setHint(t('editor.uploadFailedWith', { message: err && err.message ? err.message : String(err) }));
       }
     },
     [insertImageUrl],
@@ -1245,7 +1246,7 @@ export function NoteEditor(props) {
       saveSelection();
       readFileAsDataUrl(file)
         .then(uploadAndInsert)
-        .catch(() => setHint('读取图片失败'));
+        .catch(() => setHint(t('error.readImage')));
     },
     [saveSelection, uploadAndInsert],
   );
@@ -1258,7 +1259,7 @@ export function NoteEditor(props) {
       saveSelection();
       readFileAsDataUrl(files[0])
         .then(uploadAndInsert)
-        .catch(() => setHint('读取剪贴板图片失败'));
+        .catch(() => setHint(t('editor.readClipboardFailed')));
     },
     [saveSelection, uploadAndInsert],
   );
@@ -1289,7 +1290,7 @@ export function NoteEditor(props) {
 
       readFileAsDataUrl(files[0])
         .then(uploadAndInsert)
-        .catch(() => setHint('读取拖入图片失败'));
+        .catch(() => setHint(t('editor.readDropFailed')));
     },
     [saveSelection, uploadAndInsert],
   );
@@ -1305,13 +1306,13 @@ export function NoteEditor(props) {
       // import must never take the editor down.
       const mod = await import('./ink.js');
       const component = mod && (mod.InkPad || mod.default);
-      if (typeof component !== 'function') throw new Error('InkPad 未导出');
+      if (typeof component !== 'function') throw new Error(t('editor.inkNotExported'));
       inkComponentRef.current = component;
       inkOpenRef.current = true;
       setInkOpen(true);
     } catch (err) {
       console.error('[sticky-wall] ink pad load failed', err);
-      setInkError('手写组件加载失败');
+      setInkError(t('editor.inkLoadFailed'));
     } finally {
       if (mountedRef.current) setInkLoading(false);
     }
@@ -1330,7 +1331,7 @@ export function NoteEditor(props) {
       // (and insert) an invisible image.
       const hasInk = await dataUrlHasVisibleInk(dataUrl);
       if (!hasInk) {
-        if (mountedRef.current) setHint('画板是空的');
+        if (mountedRef.current) setHint(t('editor.inkEmpty'));
         return;
       }
       uploadAndInsert(dataUrl);
@@ -1358,7 +1359,7 @@ export function NoteEditor(props) {
       }
       el.focus();
       saveSelection();
-      if (!ok) setHint('当前浏览器不支持该格式操作');
+      if (!ok) setHint(t('editor.formatUnsupported'));
       handleInput();
     },
     [restoreSelection, saveSelection, handleInput],
@@ -1392,7 +1393,7 @@ export function NoteEditor(props) {
       const base = historyRef.current;
       const next = direction === 'undo' ? historyUndo(base) : historyRedo(base);
       if (!next) {
-        setHint(direction === 'undo' ? '没有可撤销的操作' : '没有可重做的操作');
+        setHint(t(direction === 'undo' ? 'editor.nothingToUndo' : 'editor.nothingToRedo'));
         return;
       }
       historyRef.current = next;
@@ -1576,58 +1577,58 @@ export function NoteEditor(props) {
   const InkPad = inkOpen ? inkComponentRef.current : null;
 
   return (
-    <div style={s.root} role="dialog" aria-label="编辑便签" onKeyDown={handleKeyDown}>
+    <div style={s.root} role="dialog" aria-label={t('editor.title')} onKeyDown={handleKeyDown}>
       <div style={s.header}>
         <div style={s.title}>
-          编辑便签
-          <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6, marginLeft: 8, whiteSpace: 'nowrap' }}>内容自动保存</span>
+          {t('editor.title')}
+          <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6, marginLeft: 8, whiteSpace: 'nowrap' }}>{t('editor.autoSave')}</span>
         </div>
 
         <button
           type="button"
           style={{ ...s.closeButton, display: "inline-flex", alignItems: "center", gap: 6, paddingRight: 10 }}
-          title="内容会自动保存；点这里保存并关闭"
-          aria-label="保存并关闭"
+          title={t('editor.saveHint')}
+          aria-label={t('editor.saveAndClose')}
           onMouseDown={preventDefault}
           onClick={handleClose}
         >
           <span aria-hidden="true" style={{ fontSize: 18, lineHeight: 1 }}>×</span>
-          <span style={{ fontSize: 12, opacity: 0.75, whiteSpace: "nowrap" }}>保存并关闭</span>
+          <span style={{ fontSize: 12, opacity: 0.75, whiteSpace: "nowrap" }}>{t('editor.saveAndClose')}</span>
         </button>
       </div>
 
       <div style={s.toolbar}>
         <div style={toolRow}>
-          <ToolButton label="B" title="加粗" bold onPress={() => applyCommand('bold')} />
-          <ToolButton label="I" title="斜体" italic onPress={() => applyCommand('italic')} />
+          <ToolButton label="B" title={t('editor.bold')} bold onPress={() => applyCommand('bold')} />
+          <ToolButton label="I" title={t('editor.italic')} italic onPress={() => applyCommand('italic')} />
           <ToolButton
             label="U"
-            title="下划线"
+            title={t('editor.underline')}
             underline
             onPress={() => applyCommand('underline')}
           />
-          <ToolButton label="S" title="删除线" strike onPress={() => applyCommand('strikeThrough')} />
+          <ToolButton label="S" title={t('editor.strike')} strike onPress={() => applyCommand('strikeThrough')} />
           <span style={dividerStyle} aria-hidden="true" />
-          <ToolButton label="H2" title="标题" onPress={toggleHeading} />
-          <ToolButton label="清除格式" title="清除格式" onPress={clearFormatting} />
+          <ToolButton label="H2" title={t('editor.heading')} onPress={toggleHeading} />
+          <ToolButton label={t('editor.clearFormat')} title={t('editor.clearFormat')} onPress={clearFormatting} />
         </div>
         <div style={toolRow}>
-          <ToolButton label="插入图片" title="插入图片到光标处" onPress={pickImage} />
+          <ToolButton label={t('editor.image')} title={t('editor.imageTip')} onPress={pickImage} />
           <ToolButton
-            label={inkLoading ? '手写…' : '手写'}
-            title="手写画板"
+            label={inkLoading ? t('editor.inkBusy') : t('editor.ink')}
+            title={t('editor.inkPad')}
             onPress={openInk}
           />
           <span style={dividerStyle} aria-hidden="true" />
           <ToolButton
-            label="撤销"
-            title="撤销 (Ctrl/Cmd+Z)"
+            label={t('editor.undo')}
+            title={t('editor.undoTip')}
             onPress={doUndo}
             disabled={!historyFlags.undo}
           />
           <ToolButton
-            label="重做"
-            title="重做 (Ctrl/Cmd+Shift+Z 或 Ctrl+Y)"
+            label={t('editor.redo')}
+            title={t('editor.redoTip')}
             onPress={doRedo}
             disabled={!historyFlags.redo}
           />
@@ -1643,7 +1644,7 @@ export function NoteEditor(props) {
       >
         {empty ? (
           <div style={{ ...s.placeholder, color: textColor }} aria-hidden="true">
-            写点什么…
+            {t('editor.placeholder')}
           </div>
         ) : null}
         <div
@@ -1653,7 +1654,7 @@ export function NoteEditor(props) {
           suppressContentEditableWarning
           role="textbox"
           aria-multiline="true"
-          aria-label="便签内容"
+          aria-label={t('editor.contentAria')}
           style={s.canvas}
           onInput={handleInput}
           onMouseUp={saveSelection}
@@ -1686,7 +1687,7 @@ export function NoteEditor(props) {
 
       <div style={s.footer}>
         <div style={s.footerRow}>
-          <span style={s.label}>底色</span>
+          <span style={s.label}>{t('editor.bgColor')}</span>
           {paletteList.map((option, index) => {
             const swatch = normalizeHexColor(option, '#ffffff');
             return (
@@ -1694,26 +1695,26 @@ export function NoteEditor(props) {
                 key={'bg-' + index + '-' + option}
                 type="button"
                 title={option}
-                aria-label={'便签底色 ' + option}
+                aria-label={t('editor.bgColorAria', { color: option })}
                 onMouseDown={preventDefault}
                 onClick={() => applyBackground(swatch)}
                 style={{ ...swatchStyle(swatch === color), background: swatch }}
               />
             );
           })}
-          <label style={s.colorPicker} title="自定义底色">
+          <label style={s.colorPicker} title={t('editor.customBg')}>
             <input
               type="color"
               value={color}
               style={s.colorInput}
               onChange={(event) => applyBackground(event.target.value)}
             />
-            自定义
+            {t('editor.custom')}
           </label>
         </div>
 
         <div style={s.footerRow}>
-          <span style={s.label}>文字</span>
+          <span style={s.label}>{t('editor.textColor')}</span>
           {DEFAULT_TEXT_SWATCHES.map((option) => {
             const swatch = normalizeHexColor(option, DEFAULT_TEXT);
             return (
@@ -1721,31 +1722,31 @@ export function NoteEditor(props) {
                 key={'fg-' + option}
                 type="button"
                 title={option}
-                aria-label={'文字颜色 ' + option}
+                aria-label={t('editor.textColorAria', { color: option })}
                 onMouseDown={preventDefault}
                 onClick={() => applyTextColor(swatch)}
                 style={{ ...swatchStyle(swatch === textColor), background: swatch }}
               />
             );
           })}
-          <label style={s.colorPicker} title="自定义文字颜色">
+          <label style={s.colorPicker} title={t('editor.customText')}>
             <input
               type="color"
               value={textColor}
               style={s.colorInput}
               onChange={(event) => applyTextColor(event.target.value)}
             />
-            自定义
+            {t('editor.custom')}
           </label>
         </div>
 
         <div style={s.footerRow}>
-          <span style={s.label}>提醒</span>
+          <span style={s.label}>{t('editor.reminder')}</span>
           <input
             type="datetime-local"
             value={msToLocalInput(alarmAt)}
             style={fieldStyle}
-            aria-label="提醒时间"
+            aria-label={t('editor.alarmTimeAria')}
             onChange={handleAlarmInput}
           />
           <button
@@ -1755,7 +1756,7 @@ export function NoteEditor(props) {
             disabled={alarmAt == null}
             style={{ ...baseButton, fontSize: 12, opacity: alarmAt == null ? 0.42 : 1 }}
           >
-            清除提醒
+            {t('editor.clearReminder')}
           </button>
         </div>
 
@@ -1769,12 +1770,12 @@ export function NoteEditor(props) {
                 alignItems: "center",
                 gap: 6,
               }}
-              title="把这张便签发送到某个会话"
-              aria-label="发送到会话"
+              title={t('card.deliveryTipEmpty')}
+              aria-label={t('deliver.title')}
               onClick={() => onDeliver(note)}
             >
               <span aria-hidden="true">📤</span>
-              <span style={{ whiteSpace: "nowrap" }}>发送到会话</span>
+              <span style={{ whiteSpace: "nowrap" }}>{t('deliver.title')}</span>
             </button>
           </div>
         ) : null}

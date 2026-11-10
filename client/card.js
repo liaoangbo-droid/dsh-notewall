@@ -12,6 +12,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { pickTransformOrigin } from './origin';
+import { t } from './strings.js';
 
 /** 折叠态预览高度（占卡片内容区的比例）。 */
 const PREVIEW_RATIO = 0.62;
@@ -28,7 +29,7 @@ export function formatTime(ms) {
   const sameDay = date.toDateString() === now.toDateString();
   const pad = (n) => String(n).padStart(2, '0');
   if (sameDay) return `${pad(date.getHours())}:${pad(date.getMinutes())}`;
-  return `${date.getMonth() + 1}月${date.getDate()}日`;
+  return t('card.monthDay', { day: date.getDate(), month: date.getMonth() + 1 });
 }
 
 /** 提醒时间的人性化文案。 */
@@ -54,10 +55,12 @@ export function formatDelivery(delivery) {
   const d = new Date(ms);
   const pad = (n) => String(n).padStart(2, '' + '0');
   const stamp = pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
-  const target = delivery.sessionTitle || '会话';
+  const target = delivery.sessionTitle || t('card.sessionFallback');
   // 到点前叫「预约」，到点后才叫「已于」
-  const verb = ms <= Date.now() ? '已于 ' : '预约 ';
-  return verb + stamp + ' 定时发送到 ' + target;
+  const past = ms <= Date.now();
+  return past
+    ? t('card.deliveryDone', { stamp, target })
+    : t('card.deliveryPlanned', { stamp, target });
 }
 
 export function formatAlarm(ms) {
@@ -67,7 +70,7 @@ export function formatAlarm(ms) {
   const now = new Date();
   const sameDay = date.toDateString() === now.toDateString();
   const time = `${pad(date.getHours())}:${pad(date.getMinutes())}`;
-  if (sameDay) return `今天 ${time}`;
+  if (sameDay) return t('card.today', { time });
   return `${date.getMonth() + 1}/${date.getDate()} ${time}`;
 }
 
@@ -230,7 +233,7 @@ export function NoteCard({
           onOpen?.(note);
         }
       }}
-      title={note.title || '（空便签）'}
+      title={note.title || t('card.emptyNote')}
       data-note-id={note.id}
       data-index={index}
     >
@@ -249,10 +252,10 @@ export function NoteCard({
               verticalAlign: "middle",
             }}
           >
-            草稿
+            {t('card.draft')}
           </span>
         ) : null}
-        {note.title || '（空便签）'}
+        {note.title || t('card.emptyNote')}
       </div>
 
       <div
@@ -260,7 +263,7 @@ export function NoteCard({
         style={{ maxHeight: previewHeight }}
         ref={fadeRef}
         // 内容由 host 侧清洗过（去 script / on* 属性），图片走 /sticky-wall/media
-        dangerouslySetInnerHTML={{ __html: note.html || '<p class="sw-muted">（还没有内容）</p>' }}
+        dangerouslySetInnerHTML={{ __html: note.html || '<p class="sw-muted">' + t('card.noContent') + '</p>' }}
         onClick={(event) => {
           // 图片点击也进编辑，避免浏览器开新标签
           if (event.target?.tagName === 'IMG') {
@@ -273,7 +276,7 @@ export function NoteCard({
 
       <div className="sw-card-meta">
         <span>{formatTime(note.updatedAt || note.createdAt)}</span>
-        {note.createdBy === 'agent' ? <span>· 小助手记的</span> : null}
+        {note.createdBy === 'agent' ? <span>{t('card.byAgent')}</span> : null}
         {note.alarmAt ? (
           <span className="sw-alarm-dot" style={overdue ? { background: 'rgba(220,38,38,.18)' } : undefined}>
             ⏰ {formatAlarm(note.alarmAt)}
@@ -283,8 +286,8 @@ export function NoteCard({
           <button
             type="button"
             className="sw-badge"
-            title={deliveryText ? deliveryText + '（点击可重新设置）' : '把这张便签发送到某个会话'}
-            aria-label={deliveryText || '发送到会话'}
+            title={deliveryText ? t('card.deliveryTipSet', { text: deliveryText }) : t('card.deliveryTipEmpty')}
+            aria-label={deliveryText || t('deliver.title')}
             onClick={(event) => {
               event.stopPropagation();
               onDeliver(note);
@@ -326,15 +329,15 @@ export function NoteCard({
                 </span>
               </>
             ) : (
-              '发送到会话'
+              t('deliver.title')
             )}
           </button>
         ) : null}
         {deliveryPending ? (
           <button
             type="button"
-            title="取消这次定时发送"
-            aria-label="取消定时发送"
+            title={t('card.cancelDeliveryTitle')}
+            aria-label={t('card.cancelDeliveryAria')}
             style={{
               flexShrink: 0,
               marginLeft: 4,
@@ -353,7 +356,7 @@ export function NoteCard({
               onCancelDelivery?.(note.id);
             }}
           >
-            取消定时
+            {t('card.cancelDelivery')}
           </button>
         ) : null}
       </div>
@@ -362,8 +365,8 @@ export function NoteCard({
         <button
           type="button"
           className="sw-badge"
-          title={note.pinned ? '取消置顶' : '置顶'}
-          aria-label={note.pinned ? '取消置顶' : '置顶'}
+          title={note.pinned ? t('card.unpin') : t('card.pin')}
+          aria-label={note.pinned ? t('card.unpin') : t('card.pin')}
           onClick={() => onTogglePin?.(note)}
         >
           {note.pinned ? '📌' : '📍'}
@@ -371,8 +374,8 @@ export function NoteCard({
         <button
           type="button"
           className="sw-badge"
-          title="删除便签"
-          aria-label="删除便签"
+          title={t('card.delete')}
+          aria-label={t('card.delete')}
           onClick={() => onDelete?.(note)}
         >
           🗑

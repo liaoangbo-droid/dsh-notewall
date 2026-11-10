@@ -8,6 +8,7 @@
  * @module dsh-notewall/client/session-bridge
  */
 import { stripTags } from './rich';
+import { t } from './strings.js';
 
 /**
  * 把便签渲染成发给模型的文本。
@@ -23,22 +24,20 @@ import { stripTags } from './rich';
  * @returns {string} 可直接写进输入框/定时提醒的纯文本
  */
 export function describeNote(note, options = {}) {
-  const title = (note?.title || '').trim() || '（无标题）';
+  const title = (note?.title || '').trim() || t('prompt.noTitle');
   const created = formatTimestamp(note?.createdAt);
   const body = noteToText(note?.html);
 
   const lines = [];
-  lines.push(`【便签】${title}`);
+  lines.push(t('prompt.header', { title }));
 
   if (options.mode === 'schedule' && Number.isFinite(options.at)) {
     lines.push(
-      `（这是主人于 ${created} 创建的一张便签，原本用于随手记录临时想法；` +
-        `现在通过便签墙定时到了 ${formatTimestamp(options.at)} 自动发给你。）`,
+      t('prompt.origin', { date: created, time: formatTimestamp(options.at) }),
     );
   } else {
     lines.push(
-      `（这是主人于 ${created} 创建的一张便签，用于随手记录随时随地的临时想法，` +
-        `现在从便签墙拖进了这个会话。）`,
+      t('prompt.originDragged', { date: created }),
     );
   }
 
@@ -84,13 +83,15 @@ export function noteToText(html) {
  */
 export function formatTimestamp(ms) {
   const value = Number(ms);
-  if (!Number.isFinite(value) || value <= 0) return '未知时间';
+  if (!Number.isFinite(value) || value <= 0) return t('time.unknown');
   const date = new Date(value);
   const pad = (n) => String(n).padStart(2, '0');
-  return (
-    `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日 ` +
-    `${pad(date.getHours())}:${pad(date.getMinutes())}`
-  );
+  return t('time.dateFormat', {
+    year: date.getFullYear(),
+    month: date.getMonth() + 1,
+    day: date.getDate(),
+    time: `${pad(date.getHours())}:${pad(date.getMinutes())}`,
+  });
 }
 
 /**
@@ -110,7 +111,7 @@ export function normalizeSessionList(sessions) {
     const id = raw.id ?? raw.sessionId ?? raw.session_id;
     if (typeof id !== 'string' || id === '') continue;
     const title =
-      firstString(raw.title, raw.name, raw.label, raw.summary) || '（未命名会话）';
+      firstString(raw.title, raw.name, raw.label, raw.summary) || t('wall.unnamedSession');
     const updatedAt = firstNumber(raw.updatedAt, raw.lastActiveAt, raw.updated_at, raw.createdAt) ?? 0;
     out.push({ id, title: title.slice(0, 120), updatedAt });
   }

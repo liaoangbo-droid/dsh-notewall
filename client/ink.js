@@ -14,6 +14,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { t } from './strings.js';
 
 const DEFAULT_WIDTH = 640;
 const DEFAULT_HEIGHT = 360;
@@ -22,17 +23,17 @@ const MIN_DPR = 1;
 
 /** 笔粗细（CSS 像素），三档。 */
 const PEN_SIZES = [
-  { id: 'thin', label: '细', px: 2 },
-  { id: 'mid', label: '中', px: 4 },
-  { id: 'bold', label: '粗', px: 8 },
+  { id: 'thin', label: t('ink.thin'), px: 2 },
+  { id: 'mid', label: t('ink.mid'), px: 4 },
+  { id: 'bold', label: t('ink.bold'), px: 8 },
 ];
 
 /** 快捷色：黑 / 红 / 蓝 / 绿。 */
 const QUICK_COLORS = [
-  { id: 'ink', value: '#1f2430', label: '黑' },
-  { id: 'red', value: '#e5484d', label: '红' },
-  { id: 'blue', value: '#2f6feb', label: '蓝' },
-  { id: 'green', value: '#2e9e5b', label: '绿' },
+  { id: 'ink', value: '#1f2430', label: t('ink.black') },
+  { id: 'red', value: '#e5484d', label: t('ink.red') },
+  { id: 'blue', value: '#2f6feb', label: t('ink.blue') },
+  { id: 'green', value: '#2e9e5b', label: t('ink.green') },
 ];
 
 /* ---------------------------------- 主题色 --------------------------------- */
@@ -266,7 +267,7 @@ export function InkPad({ width, height, color, onDone, onCancel }) {
   const swatches = useMemo(() => {
     const list = QUICK_COLORS.slice();
     if (!list.some((item) => item.value.toLowerCase() === initialColor.toLowerCase())) {
-      list.unshift({ id: 'note', value: initialColor, label: '原色' });
+      list.unshift({ id: 'note', value: initialColor, label: t('ink.note') });
     }
     return list;
   }, [initialColor]);
@@ -540,7 +541,7 @@ export function InkPad({ width, height, color, onDone, onCancel }) {
     >
       <div
         role="dialog"
-        aria-label="手写画板"
+        aria-label={t('editor.inkPad')}
         aria-modal="true"
         style={{
           display: 'flex',
@@ -563,10 +564,10 @@ export function InkPad({ width, height, color, onDone, onCancel }) {
       >
         {/* 头部 */}
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
-          <div style={{ fontSize: 15, fontWeight: 600, letterSpacing: 0.2 }}>手写</div>
-          <div style={{ fontSize: 12, color: T.muted }}>用鼠标 / 手指 / 手写笔都可以</div>
+          <div style={{ fontSize: 15, fontWeight: 600, letterSpacing: 0.2 }}>{t('ink.title')}</div>
+          <div style={{ fontSize: 12, color: T.muted }}>{t('ink.hint')}</div>
           <div style={{ marginLeft: 'auto', fontSize: 12, color: T.muted }}>
-            {hasInk ? `${strokeCount} 笔` : '空白'}
+            {hasInk ? t('ink.strokeCount', { n: strokeCount }) : t('ink.empty')}
           </div>
         </div>
 
@@ -576,7 +577,7 @@ export function InkPad({ width, height, color, onDone, onCancel }) {
             {PEN_SIZES.map((size) => (
               <ToolButton
                 key={size.id}
-                title={`笔画：${size.label}`}
+                title={t('ink.sizeTitle', { size: size.label })}
                 active={!eraser && penSize === size.px}
                 onClick={() => {
                   setEraser(false);
@@ -601,8 +602,8 @@ export function InkPad({ width, height, color, onDone, onCancel }) {
 
           <div style={{ width: 1, height: 22, background: T.border, margin: '0 2px' }} />
 
-          <ToolButton title="橡皮：擦掉笔迹" active={eraser} onClick={() => setEraser((v) => !v)}>
-            橡皮
+          <ToolButton title={t('ink.eraserTitle')} active={eraser} onClick={() => setEraser((v) => !v)}>
+            {t('ink.eraser')}
           </ToolButton>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 2 }}>
@@ -610,7 +611,7 @@ export function InkPad({ width, height, color, onDone, onCancel }) {
               <Swatch
                 key={item.id}
                 value={item.value}
-                label={`颜色：${item.label}`}
+                label={t('ink.colorTitle', { color: item.label })}
                 selected={!eraser && penColor.toLowerCase() === item.value.toLowerCase()}
                 onSelect={() => {
                   setEraser(false);
@@ -621,16 +622,16 @@ export function InkPad({ width, height, color, onDone, onCancel }) {
           </div>
 
           <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
-            <ToolButton title="撤销上一笔（Ctrl/Cmd + Z）" disabled={!hasInk && !drawing} onClick={undo}>
-              撤销
+            <ToolButton title={t('ink.undoTitle')} disabled={!hasInk && !drawing} onClick={undo}>
+              {t('ink.undo')}
             </ToolButton>
             <ToolButton
-              title="清空整块画板"
+              title={t('ink.clearTitle')}
               disabled={!hasInk && !drawing}
               onClick={clearAll}
               style={{ color: hasInk || drawing ? T.danger : T.muted }}
             >
-              清空
+              {t('ink.clear')}
             </ToolButton>
           </div>
         </div>
@@ -683,20 +684,20 @@ export function InkPad({ width, height, color, onDone, onCancel }) {
                 color: T.muted,
               }}
             >
-              在这里写写画画（背景透明，导出 PNG 不带白底）
+              {t('ink.placeholder')}
             </div>
           ) : null}
         </div>
 
         {/* 底部操作 */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div style={{ fontSize: 11, color: T.muted }}>Esc 取消 · Ctrl/Cmd + Z 撤销</div>
+          <div style={{ fontSize: 11, color: T.muted }}>{t('ink.escHint')}</div>
           <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
-            <ToolButton title="放弃这次手写" onClick={cancel} style={{ height: 32, padding: '0 14px' }}>
-              取消
+            <ToolButton title={t('ink.cancelTitle')} onClick={cancel} style={{ height: 32, padding: '0 14px' }}>
+              {t('ink.cancel')}
             </ToolButton>
             <ToolButton
-              title="把笔迹转成 PNG 插入便签"
+              title={t('ink.doneTitle')}
               onClick={finish}
               style={{
                 height: 32,
@@ -707,7 +708,7 @@ export function InkPad({ width, height, color, onDone, onCancel }) {
                 fontWeight: 600,
               }}
             >
-              完成
+              {t('ink.done')}
             </ToolButton>
           </div>
         </div>
