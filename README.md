@@ -63,7 +63,7 @@ dsh plugin --profile web add "$PWD"
 - 闹钟依赖浏览器打开：页面全关时不会响，重开会补弹。
 - hover 放大只在鼠标悬停时触发；触屏设备点击直接进编辑。
 - 立即发送走内核定时器（`at = now + 1500ms`），所以有约 2 秒延迟——这是刻意留的余量。
-- 只读接口（`GET /state`、`/media/*`）无鉴权，服务默认只监听 `127.0.0.1`；若要挂反向代理，鉴权得在代理侧补。
+- 所有路由（读写一样）先过内核的信任栅栏 `ctx.connection.requestRejection(req)`：Host/Origin 不匹配返回 403（挡 DNS rebinding 与跨站调用），没有登录 cookie 返回 401。裸 `curl` 打不进来是预期行为。服务另外默认只监听 `127.0.0.1`。
 - 便签内容是不含表格与代码块的受限 HTML（`script`/`style`/`iframe`/`on*` 已在 host 侧剥离）。
 
 ## License

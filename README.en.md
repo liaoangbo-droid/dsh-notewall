@@ -63,7 +63,7 @@ Creating and deleting are user-visible side effects; the tool descriptions say "
 - Alarms need the page open: nothing fires while it's closed, and missed ones pop up when you return.
 - Hover zoom is mouse-only; on touch devices a tap opens the editor directly.
 - "Send now" goes through the kernel scheduler (`at = now + 1500ms`), hence the ~2s delay — that margin is deliberate.
-- Read endpoints (`GET /state`, `/media/*`) have no auth. The server listens on `127.0.0.1` only; if you put it behind a reverse proxy, add auth at the proxy.
+- Every route (reads and writes alike) asks the kernel's trust fence first — `ctx.connection.requestRejection(req)`: a mismatched Host/Origin yields 403 (defeats DNS rebinding and cross-site calls), a missing login cookie yields 401. A bare `curl` being refused is expected. The server also listens on `127.0.0.1` only.
 - Note bodies are restricted HTML without tables or code blocks (`script` / `style` / `iframe` / `on*` are stripped host-side).
 
 ## License
