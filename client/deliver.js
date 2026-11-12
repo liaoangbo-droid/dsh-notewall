@@ -7,7 +7,7 @@
  * 硬规则：不使用 window.confirm / alert / prompt —— 远程嵌入式客户端里
  * 原生模态会打断焦点链，导致整页输入失效。
  */
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { formatTimestamp } from './session-bridge.js';
 import { t } from './strings.js';
 
@@ -169,7 +169,7 @@ function defaultAt() {
 }
 
 export function DeliverDialog(props) {
-  const { note, sessions, busy, error, onClose, onInsert, onSchedule, onRefresh } = props;
+  const { note, sessions, busy, error, onClose, onInsert, onSchedule, onRefresh, onListSessions } = props;
 
   const [sessionId, setSessionId] = useState(props.initialSessionId ?? '');
   const [activeWs, setActiveWs] = useState(null);
@@ -207,7 +207,43 @@ export function DeliverDialog(props) {
     }
   };
 
-  const all = Array.isArray(sessions) ? sessions : [];
+  // 自动轮询拿到的列表；非 null 时优先于 props.sessions
+  const [polled, setPolled] = useState(null);
+
+  /**
+   * 打开弹窗后自动重读会话列表 —— 不需要用户点任何按钮。
+   *
+   * 为什么放弃按钮：这台机器上按钮的 onClick 始终不触发（试过反馈提示、
+   * 去掉 disabled、放大点击区、加 zIndex，全都没效果），与其继续在事件层
+   * 打转，不如让弹窗自己轮询，功能不依赖点击。
+   *
+   * 数据源走 onListSessions（= wall 的 actions.listSessions），也就是
+   * 「打开弹窗能显示列表」那条已被验证可用的路径。5 秒一次、共 12 次
+   * （一分钟），足以覆盖宿主会话索引的更新延迟。
+   */
+  useEffect(() => {
+    if (typeof onListSessions !== 'function') return undefined;
+    let alive = true;
+    let tries = 0;
+    const tick = async () => {
+      if (!alive || tries >= 12) return;
+      tries += 1;
+      try {
+        const list = await onListSessions();
+        if (alive && Array.isArray(list)) setPolled(list);
+      } catch {
+        // 轮询失败保持现状，不打扰用户
+      }
+    };
+    void tick();
+    const timer = setInterval(tick, 5000);
+    return () => {
+      alive = false;
+      clearInterval(timer);
+    };
+  }, [onListSessions]);
+
+  const all = Array.isArray(polled) ? polled : Array.isArray(sessions) ? sessions : [];
 
   const groups = useMemo(() => {
     const map = new Map();

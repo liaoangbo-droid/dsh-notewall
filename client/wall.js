@@ -661,6 +661,9 @@ export function StickyWall({
           note={deliverTarget.note}
           sessions={deliverTarget.sessions}
           onRefresh={refreshDeliverSessions}
+          // 自动轮询用：listSessions 来自 actions（模块级常量对象，引用稳定），
+          // 走的是「打开弹窗时能拿到列表」那条已被验证可用的路径。
+          onListSessions={listSessions}
           busy={deliverTarget.busy}
           error={deliverTarget.error}
           initialSessionId={deliverTarget.initialSessionId}
