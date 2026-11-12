@@ -15,7 +15,7 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { describeNote, normalizeSessionList, noteToText } from './session-bridge.js';
 import { t } from './strings.js';
-import { QuickDraftButton } from './quick-draft.js';
+import { QuickDraftButton, DraftPane, DRAFT_KIND } from './quick-draft.js';
 import { api, readFileAsDataUrl } from './api';
 import { injectStyles } from './theme';
 import { StickyWall } from './wall';
@@ -520,7 +520,7 @@ function StickyWallIcon({ size = 18, active = false }) {
  * 抛错 → fiber 进入 FAILED → DSH web boot 判定「entry did not activate」整页挂死。
  * 与官方模板 templates/decoration/client.js 的 `inject: ['slots']` 一致。
  */
-export const inject = ['slots'];
+export const inject = ['slots', 'sidebarRight'];
 
 /**
  * 宿主侧的自检通道：客户端异常写进 `<dataRoot>/client-diag.log`。
@@ -606,16 +606,56 @@ function applyImpl(ctx) {
     ),
   );
 
-  // 会话头部草稿按钮：挂在会话标题栏右侧工具区，随时开一个便签草稿抽屉。
-  // 这个插槽由内核 @deepseek-ai/dsh-client-ui-conversation 提供，不依赖任何外部插件。
+  // 会话头部草稿按钮：挂在会话标题栏右侧工具区，点开就是内核右栏里的草稿 tab。
+  // 走 ctx.sidebarRight.openTab 而不是自绘浮层 —— 只有真占进右栏，正文才会被推挤让位。
+  // openTab/服务不可用时抛错，按钮组件自己 catch 掉并退回自绘抽屉。
   safeSlot('header.quick-draft', () =>
     ctx.slots.inject('conversation.session.header.utilities', () =>
       ctx.slots.register(
-        { name: 'conversation.session.header.utilities', id: 'sticky-wall-draft', order: -5 },
+        {
+          name: 'conversation.session.header.utilities',
+          id: 'sticky-wall-draft',
+          order: -5,
+          inject: () => ({
+            openDraft: () => {
+              const sidebar = ctx.sidebarRight;
+              if (sidebar === undefined || typeof sidebar.openTab !== 'function') {
+                throw new Error('sidebarRight.openTab is unavailable');
+              }
+              sidebar.openTab('sticky-wall-draft');
+            },
+          }),
+        },
         QuickDraftButton,
       ),
     ),
   );
+
+  // 草稿 tab 的面板内容：注册到内核右栏的 tab body 插槽。
+  // tab 类型（sidebarRightTabs）不是 inject 依赖 —— 服务名若有版本差异，
+  // 这里拿不到就只是不注册类型，绝不能因此让整个插件加载失败。
+  safeSlot('sidebar.pane.draft', () => {
+    try {
+      const tabs = ctx.get?.('sidebarRightTabs') ?? ctx.sidebarRightTabs;
+      if (tabs !== undefined && typeof tabs.register === 'function') {
+        tabs.register({
+          id: DRAFT_KIND,
+          kind: DRAFT_KIND,
+          priority: 'plugin',
+          title: () => t('draft.title'),
+        });
+      }
+    } catch (error) {
+      reportClientError('sidebar-tab-type', error);
+    }
+
+    ctx.slots.inject('sidebar.right.pane.tab', () =>
+      ctx.slots.register(
+        { name: 'sidebar.right.pane.tab', key: DRAFT_KIND },
+        DraftPane,
+      ),
+    );
+  });
 
   // 右下角提醒弹框：挂在 frame 级浮层，跨面板常驻。
   safeSlot('shell.overlay', () =>

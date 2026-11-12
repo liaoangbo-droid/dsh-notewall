@@ -14,6 +14,9 @@ import { NoteEditor } from './editor.js';
 import { t } from './strings.js';
 
 // 和编辑器面板同宽：NoteEditor 内部写死 520，抽屉比它窄会横向溢出。
+/** 草稿 tab 的类型名：注册 tab 类型、开 tab、注册面板都用它。 */
+export const DRAFT_KIND = 'sticky-wall-draft';
+
 const PANEL_W = 560;
 
 const chipStyle = {
@@ -26,7 +29,12 @@ const chipStyle = {
   cursor: 'pointer',
 };
 
-export function QuickDraftButton() {
+export function QuickDraftButton(props) {
+  // 右栏版走内核 sidebarRight 时，由 slot 的 inject 把 openDraft 传进来；
+  // 拿不到就退回自绘抽屉（当前可用形态），保证功能不会因为改造而消失。
+  const openDraft = props?.inject?.openDraft;
+  const external = typeof openDraft === 'function';
+
   const [open, setOpen] = useState(false);
   const [note, setNote] = useState(null);
   const [notes, setNotes] = useState([]);
@@ -103,7 +111,17 @@ export function QuickDraftButton() {
         title={t('draft.button')}
         aria-label={t('draft.button')}
         aria-pressed={open}
-        onClick={() => setOpen((value) => !value)}
+        onClick={() => {
+          if (!external) {
+            setOpen((value) => !value);
+            return;
+          }
+          try {
+            openDraft();
+          } catch {
+            // openTab 不可用（内核版本差异/未注册 kind）时静默失败，不打断会话
+          }
+        }}
         style={{
           display: 'inline-flex',
           alignItems: 'center',
@@ -122,7 +140,7 @@ export function QuickDraftButton() {
         <span aria-hidden="true">📝</span>
       </button>
 
-      {open ? (
+      {!external && open ? (
         <aside
           role="dialog"
           aria-label={t('draft.title')}
@@ -229,7 +247,160 @@ export function QuickDraftButton() {
   );
 }
 
+/**
+ * 右栏里的草稿面板：列出墙上的便签，也能就地新建一张。
+ *
+ * 它是 slot `sidebar.right.pane.tab` 的 body —— 内核右栏是布局里真实的一栏，
+ * 内容占进来之后会话正文会被推挤让位，这正是自绘浮层做不到的地方。
+ */
+export function DraftPane() {
+  const [note, setNote] = useState(null);
+  const [notes, setNotes] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const aliveRef = useRef(true);
+
+  useEffect(() => () => { aliveRef.current = false; }, []);
+
+  const loadNotes = useCallback(async () => {
+    setLoading(true);
+    try {
+      const result = await api.state();
+      if (!aliveRef.current) return;
+      setNotes(Array.isArray(result?.doc?.notes) ? result.doc.notes : []);
+    } catch (err) {
+      if (aliveRef.current) setError(err?.message ?? String(err));
+    } finally {
+      if (aliveRef.current) setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { void loadNotes(); }, [loadNotes]);
+
+  const createDraft = useCallback(async () => {
+    if (busy) return;
+    setBusy(true);
+    setError('');
+    try {
+      const result = await api.note({ op: 'create', text: '' });
+      if (!aliveRef.current) return;
+      const created = result?.note ?? null;
+      if (created) setNote(created);
+      else setError(t('draft.createFailed'));
+    } catch (err) {
+      if (aliveRef.current) setError(err?.message ?? String(err));
+    } finally {
+      if (aliveRef.current) setBusy(false);
+    }
+  }, [busy]);
+
+  const saveDraft = useCallback(
+    async (patch) => {
+      const id = note?.id;
+      if (!id) return;
+      try {
+        await api.note({ op: 'update', id, ...patch });
+      } catch {
+        // 编辑器自带防抖与重试，这里失败不打断输入。
+      }
+    },
+    [note],
+  );
+
+  const chip = {
+    border: 'none',
+    background: 'rgba(127,127,127,.12)',
+    color: 'inherit',
+    borderRadius: 7,
+    padding: '4px 9px',
+    fontSize: 12,
+    cursor: 'pointer',
+    fontFamily: 'inherit',
+  };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          padding: '6px 10px',
+          borderBottom: '1px solid var(--dsh-border, rgba(128,140,160,.18))',
+          flexShrink: 0,
+        }}
+      >
+        <strong style={{ fontSize: 12, flex: 1 }}>{t('draft.title')}</strong>
+        <button type="button" onClick={createDraft} disabled={busy} style={chip}>
+          {busy ? '…' : t('draft.new')}
+        </button>
+        {note ? (
+          <button type="button" onClick={() => setNote(null)} style={chip}>
+            {t('draft.back')}
+          </button>
+        ) : null}
+      </div>
+
+      <div style={{ flex: 1, minHeight: 0, overflow: 'auto', padding: 10 }}>
+        {error ? (
+          <div style={{ fontSize: 12, color: '#c0392b', marginBottom: 8 }}>{error}</div>
+        ) : null}
+
+        {note ? (
+          <NoteEditor note={note} onClose={() => setNote(null)} onChange={saveDraft} />
+        ) : loading ? (
+          <div style={hintStyle}>{t('draft.loading')}</div>
+        ) : notes.length === 0 ? (
+          <div style={hintStyle}>{t('draft.empty')}</div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <div style={{ ...hintStyle, marginBottom: 2 }}>{t('draft.pick')}</div>
+            {notes.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => setNote(item)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                  textAlign: 'left',
+                  padding: '9px 10px',
+                  borderRadius: 9,
+                  border: '1px solid var(--dsh-border, rgba(128,140,160,.2))',
+                  background: item.color || 'transparent',
+                  color: 'inherit',
+                  cursor: 'pointer',
+                  fontSize: 12,
+                  fontFamily: 'inherit',
+                }}
+              >
+                <span
+                  style={{
+                    flex: 1,
+                    minWidth: 0,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {plainText(item) || t('draft.untitled')}
+                </span>
+                <span style={{ opacity: 0.55, fontSize: 11, flexShrink: 0 }}>
+                  {t('draft.edit')}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 const hintStyle = { fontSize: 12, opacity: 0.66, lineHeight: 1.8 };
+
 
 /** 列表里只需要一眼能认出来的纯文本标题，不渲染富文本。 */
 function plainText(item) {
