@@ -41,6 +41,8 @@ const s = {
     fontSize: 14,
     fontWeight: 600,
   },
+  // 刷新结果提示的一行（成功/失败都显示，避免「点了没反应」的哑状态）
+  refreshNote: { padding: '0 16px 8px', fontSize: 12, lineHeight: 1.5, opacity: 0.72 },
   body: { padding: '0 16px 8px', overflowY: 'auto', minHeight: 0 },
   label: { fontSize: 12, opacity: 0.65, margin: '10px 0 6px' },
   list: {
@@ -173,24 +175,33 @@ export function DeliverDialog(props) {
   const [activeWs, setActiveWs] = useState(null);
   const [mode, setMode] = useState('insert');
   const [at, setAt] = useState(defaultAt);
-  // 手动刷新会话列表时的进行态（防连点、给按钮一个可见的忙碌反馈）
+  // 手动刷新会话列表的进行态（防连点）
   const [refreshing, setRefreshing] = useState(false);
+  // 刷新结果提示：成功/失败都要让用户看见，不能静默
+  const [refreshNote, setRefreshNote] = useState('');
 
   /**
    * 重新拉一次会话列表。
    *
-   * 会话列表来自宿主 ctx.sessions.manager.summaries —— 那是会话索引的一份
-   * 快照，不是每次调用现算。刚建好的会话要等索引刷新才进数组（实测可能
-   * 滞后一分钟左右）。本弹窗打开时只抓一次，所以「新建会话 → 立刻打开」
-   * 会看不到它；这个按钮就是给用户手动重抓一次的口子。
+   * 会话列表来自宿主会话索引的快照，不是每次调用现算；刚建好的会话要等
+   * 索引刷新才进数组。所以这里给用户一个手动重抓的口子。
+   *
+   * 注意：任何一种结局都要写 refreshNote。之前这函数在 onRefresh 缺失时
+   * 静默 return，表现就是「点了完全没反应」，根本没法排查。
    */
   const handleRefresh = async () => {
-    if (typeof onRefresh !== 'function' || refreshing || busy) return;
+    if (refreshing) return;
     setRefreshing(true);
+    setRefreshNote('');
     try {
+      if (typeof onRefresh !== 'function') {
+        setRefreshNote(t('deliver.refreshMissing'));
+        return;
+      }
       await onRefresh();
-    } catch {
-      // 失败时保持原有列表不动；错误由 wall 那层写进 error 字段展示
+      setRefreshNote(t('deliver.refreshOk'));
+    } catch (err) {
+      setRefreshNote(t('deliver.refreshFailed', { error: String(err?.message ?? err) }));
     } finally {
       setRefreshing(false);
     }
@@ -276,21 +287,23 @@ export function DeliverDialog(props) {
       <div style={s.card}>
         <div style={s.head}>
           <span>{t('deliver.title')}</span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
             <button
               type="button"
               style={{
+                position: 'relative',
+                zIndex: 2,
                 border: 'none',
                 background: 'transparent',
-                fontSize: 14,
+                fontSize: 15,
                 lineHeight: 1,
-                padding: 4,
-                cursor: refreshing || busy ? 'default' : 'pointer',
-                opacity: refreshing || busy ? 0.3 : 0.6,
+                padding: '6px 8px',
+                cursor: refreshing ? 'progress' : 'pointer',
+                opacity: refreshing ? 0.4 : 0.75,
               }}
               aria-label={t('deliver.ariaRefresh')}
               title={refreshing ? t('deliver.refreshing') : t('deliver.ariaRefresh')}
-              disabled={refreshing || busy}
+              disabled={refreshing}
               onClick={handleRefresh}
             >
               ↻
@@ -305,6 +318,12 @@ export function DeliverDialog(props) {
             </button>
           </div>
         </div>
+
+        {refreshNote ? (
+          <div style={s.refreshNote} role="status">
+            {refreshNote}
+          </div>
+        ) : null}
 
         <div style={s.body}>
           {activeGroup ? (
