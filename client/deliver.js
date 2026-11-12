@@ -167,12 +167,34 @@ function defaultAt() {
 }
 
 export function DeliverDialog(props) {
-  const { note, sessions, busy, error, onClose, onInsert, onSchedule } = props;
+  const { note, sessions, busy, error, onClose, onInsert, onSchedule, onRefresh } = props;
 
   const [sessionId, setSessionId] = useState(props.initialSessionId ?? '');
   const [activeWs, setActiveWs] = useState(null);
   const [mode, setMode] = useState('insert');
   const [at, setAt] = useState(defaultAt);
+  // 手动刷新会话列表时的进行态（防连点、给按钮一个可见的忙碌反馈）
+  const [refreshing, setRefreshing] = useState(false);
+
+  /**
+   * 重新拉一次会话列表。
+   *
+   * 会话列表来自宿主 ctx.sessions.manager.summaries —— 那是会话索引的一份
+   * 快照，不是每次调用现算。刚建好的会话要等索引刷新才进数组（实测可能
+   * 滞后一分钟左右）。本弹窗打开时只抓一次，所以「新建会话 → 立刻打开」
+   * 会看不到它；这个按钮就是给用户手动重抓一次的口子。
+   */
+  const handleRefresh = async () => {
+    if (typeof onRefresh !== 'function' || refreshing || busy) return;
+    setRefreshing(true);
+    try {
+      await onRefresh();
+    } catch {
+      // 失败时保持原有列表不动；错误由 wall 那层写进 error 字段展示
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   const all = Array.isArray(sessions) ? sessions : [];
 
@@ -254,14 +276,34 @@ export function DeliverDialog(props) {
       <div style={s.card}>
         <div style={s.head}>
           <span>{t('deliver.title')}</span>
-          <button
-            type="button"
-            style={{ border: 'none', background: 'transparent', fontSize: 18, cursor: 'pointer', lineHeight: 1 }}
-            aria-label={t('deliver.ariaClose')}
-            onClick={onClose}
-          >
-            ×
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <button
+              type="button"
+              style={{
+                border: 'none',
+                background: 'transparent',
+                fontSize: 14,
+                lineHeight: 1,
+                padding: 4,
+                cursor: refreshing || busy ? 'default' : 'pointer',
+                opacity: refreshing || busy ? 0.3 : 0.6,
+              }}
+              aria-label={t('deliver.ariaRefresh')}
+              title={refreshing ? t('deliver.refreshing') : t('deliver.ariaRefresh')}
+              disabled={refreshing || busy}
+              onClick={handleRefresh}
+            >
+              ↻
+            </button>
+            <button
+              type="button"
+              style={{ border: 'none', background: 'transparent', fontSize: 18, cursor: 'pointer', lineHeight: 1 }}
+              aria-label={t('deliver.ariaClose')}
+              onClick={onClose}
+            >
+              ×
+            </button>
+          </div>
         </div>
 
         <div style={s.body}>
