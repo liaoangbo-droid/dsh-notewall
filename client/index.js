@@ -15,6 +15,7 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { describeNote, normalizeSessionList, noteToText } from './session-bridge.js';
 import { t } from './strings.js';
+import { QuickDraftButton } from './quick-draft.js';
 import { api, readFileAsDataUrl } from './api';
 import { injectStyles } from './theme';
 import { StickyWall } from './wall';
@@ -601,6 +602,17 @@ function applyImpl(ctx) {
       ctx.slots.register(
         { name: 'sidebar.panellist', id: PANEL_ID, order: PANEL_ORDER, label: () => t('wall.title') },
         StickyWallIcon,
+      ),
+    ),
+  );
+
+  // 会话头部草稿按钮：挂在会话标题栏右侧工具区，随时开一个便签草稿抽屉。
+  // 这个插槽由内核 @deepseek-ai/dsh-client-ui-conversation 提供，不依赖任何外部插件。
+  safeSlot('header.quick-draft', () =>
+    ctx.slots.inject('conversation.session.header.utilities', () =>
+      ctx.slots.register(
+        { name: 'conversation.session.header.utilities', id: 'sticky-wall-draft', order: -5 },
+        QuickDraftButton,
       ),
     ),
   );
