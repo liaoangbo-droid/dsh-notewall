@@ -122,19 +122,6 @@ export function StickyWall({
     [listSessions],
   );
 
-  /**
-   * 弹窗里的「刷新会话列表」。
-   *
-   * 为什么要这个：会话列表来自宿主 ctx.sessions.manager.summaries，那是
-   * 会话索引的一份快照，不是每次调用现算。刚新建的会话要等索引更新才进
-   * 数组（实测可能滞后一分钟），而 openDeliver 只在打开弹窗时抓一次 ——
-   * 所以「新建会话 → 立刻打开弹窗」会看不到它。让用户能手动重抓一次。
-   */
-  const refreshDeliverSessions = useCallback(async () => {
-    const list = (await listSessions?.()) ?? [];
-    setDeliverTarget((prev) => (prev ? { ...prev, sessions: list, error: '' } : prev));
-  }, [listSessions]);
-
   const runDeliver = useCallback(async (payload, action) => {
     setDeliverTarget((prev) => (prev ? { ...prev, busy: true, error: '' } : prev));
     try {
@@ -660,10 +647,6 @@ export function StickyWall({
         <DeliverDialog
           note={deliverTarget.note}
           sessions={deliverTarget.sessions}
-          onRefresh={refreshDeliverSessions}
-          // 自动轮询用：listSessions 来自 actions（模块级常量对象，引用稳定），
-          // 走的是「打开弹窗时能拿到列表」那条已被验证可用的路径。
-          onListSessions={listSessions}
           busy={deliverTarget.busy}
           error={deliverTarget.error}
           initialSessionId={deliverTarget.initialSessionId}

@@ -7,7 +7,7 @@
  * 硬规则：不使用 window.confirm / alert / prompt —— 远程嵌入式客户端里
  * 原生模态会打断焦点链，导致整页输入失效。
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { formatTimestamp } from './session-bridge.js';
 import { t } from './strings.js';
 
@@ -41,8 +41,6 @@ const s = {
     fontSize: 14,
     fontWeight: 600,
   },
-  // 刷新结果提示的一行（成功/失败都显示，避免「点了没反应」的哑状态）
-  refreshNote: { padding: '0 16px 8px', fontSize: 12, lineHeight: 1.5, opacity: 0.72 },
   body: { padding: '0 16px 8px', overflowY: 'auto', minHeight: 0 },
   label: { fontSize: 12, opacity: 0.65, margin: '10px 0 6px' },
   list: {
@@ -169,81 +167,14 @@ function defaultAt() {
 }
 
 export function DeliverDialog(props) {
-  const { note, sessions, busy, error, onClose, onInsert, onSchedule, onRefresh, onListSessions } = props;
+  const { note, sessions, busy, error, onClose, onInsert, onSchedule } = props;
 
   const [sessionId, setSessionId] = useState(props.initialSessionId ?? '');
   const [activeWs, setActiveWs] = useState(null);
   const [mode, setMode] = useState('insert');
   const [at, setAt] = useState(defaultAt);
-  // 手动刷新会话列表的进行态（防连点）
-  const [refreshing, setRefreshing] = useState(false);
-  // 刷新结果提示：成功/失败都要让用户看见，不能静默
-  const [refreshNote, setRefreshNote] = useState('');
 
-  /**
-   * 重新拉一次会话列表。
-   *
-   * 会话列表来自宿主会话索引的快照，不是每次调用现算；刚建好的会话要等
-   * 索引刷新才进数组。所以这里给用户一个手动重抓的口子。
-   *
-   * 注意：任何一种结局都要写 refreshNote。之前这函数在 onRefresh 缺失时
-   * 静默 return，表现就是「点了完全没反应」，根本没法排查。
-   */
-  const handleRefresh = async () => {
-    if (refreshing) return;
-    setRefreshing(true);
-    setRefreshNote('');
-    try {
-      if (typeof onRefresh !== 'function') {
-        setRefreshNote(t('deliver.refreshMissing'));
-        return;
-      }
-      await onRefresh();
-      setRefreshNote(t('deliver.refreshOk'));
-    } catch (err) {
-      setRefreshNote(t('deliver.refreshFailed', { error: String(err?.message ?? err) }));
-    } finally {
-      setRefreshing(false);
-    }
-  };
-
-  // 自动轮询拿到的列表；非 null 时优先于 props.sessions
-  const [polled, setPolled] = useState(null);
-
-  /**
-   * 打开弹窗后自动重读会话列表 —— 不需要用户点任何按钮。
-   *
-   * 为什么放弃按钮：这台机器上按钮的 onClick 始终不触发（试过反馈提示、
-   * 去掉 disabled、放大点击区、加 zIndex，全都没效果），与其继续在事件层
-   * 打转，不如让弹窗自己轮询，功能不依赖点击。
-   *
-   * 数据源走 onListSessions（= wall 的 actions.listSessions），也就是
-   * 「打开弹窗能显示列表」那条已被验证可用的路径。5 秒一次、共 12 次
-   * （一分钟），足以覆盖宿主会话索引的更新延迟。
-   */
-  useEffect(() => {
-    if (typeof onListSessions !== 'function') return undefined;
-    let alive = true;
-    let tries = 0;
-    const tick = async () => {
-      if (!alive || tries >= 12) return;
-      tries += 1;
-      try {
-        const list = await onListSessions();
-        if (alive && Array.isArray(list)) setPolled(list);
-      } catch {
-        // 轮询失败保持现状，不打扰用户
-      }
-    };
-    void tick();
-    const timer = setInterval(tick, 5000);
-    return () => {
-      alive = false;
-      clearInterval(timer);
-    };
-  }, [onListSessions]);
-
-  const all = Array.isArray(polled) ? polled : Array.isArray(sessions) ? sessions : [];
+  const all = Array.isArray(sessions) ? sessions : [];
 
   const groups = useMemo(() => {
     const map = new Map();
@@ -323,45 +254,18 @@ export function DeliverDialog(props) {
       <div style={s.card}>
         <div style={s.head}>
           <span>{t('deliver.title')}</span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <button
-              type="button"
-              style={{
-                position: 'relative',
-                zIndex: 2,
-                border: 'none',
-                background: 'transparent',
-                fontSize: 15,
-                lineHeight: 1,
-                padding: '6px 8px',
-                cursor: refreshing ? 'progress' : 'pointer',
-                opacity: refreshing ? 0.4 : 0.75,
-              }}
-              aria-label={t('deliver.ariaRefresh')}
-              title={refreshing ? t('deliver.refreshing') : t('deliver.ariaRefresh')}
-              disabled={refreshing}
-              onClick={handleRefresh}
-            >
-              ↻
-            </button>
-            <button
-              type="button"
-              style={{ border: 'none', background: 'transparent', fontSize: 18, cursor: 'pointer', lineHeight: 1 }}
-              aria-label={t('deliver.ariaClose')}
-              onClick={onClose}
-            >
-              ×
-            </button>
-          </div>
+          <button
+            type="button"
+            style={{ border: 'none', background: 'transparent', fontSize: 18, cursor: 'pointer', lineHeight: 1 }}
+            aria-label={t('deliver.ariaClose')}
+            onClick={onClose}
+          >
+            ×
+          </button>
         </div>
 
-        {refreshNote ? (
-          <div style={s.refreshNote} role="status">
-            {refreshNote}
-          </div>
-        ) : null}
-
         <div style={s.body}>
+          <div style={s.label}>{t('deliver.sessionDelay')}</div>
           {activeGroup ? (
             <>
               <div style={s.label}>
