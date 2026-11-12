@@ -29,6 +29,8 @@ const chipStyle = {
 export function QuickDraftButton() {
   const [open, setOpen] = useState(false);
   const [note, setNote] = useState(null);
+  const [notes, setNotes] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const aliveRef = useRef(true);
@@ -65,6 +67,25 @@ export function QuickDraftButton() {
     },
     [note],
   );
+
+  // 打开抽屉时把墙上的便签读出来，让用户直接挑一张接着写，而不是面对空白。
+  const loadNotes = useCallback(async () => {
+    setLoading(true);
+    try {
+      const result = await api.state();
+      if (!aliveRef.current) return;
+      const list = Array.isArray(result?.doc?.notes) ? result.doc.notes : [];
+      setNotes(list);
+    } catch (err) {
+      if (aliveRef.current) setError(err?.message ?? String(err));
+    } finally {
+      if (aliveRef.current) setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (open) void loadNotes();
+  }, [open, loadNotes]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -156,9 +177,49 @@ export function QuickDraftButton() {
                 onClose={() => setNote(null)}
                 onChange={saveDraft}
               />
+            ) : loading ? (
+              <div style={hintStyle}>{t('draft.loading')}</div>
+            ) : notes.length === 0 ? (
+              <div style={hintStyle}>{t('draft.empty')}</div>
             ) : (
-              <div style={{ fontSize: 12, opacity: 0.66, lineHeight: 1.8 }}>
-                {t('draft.empty')}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div style={{ ...hintStyle, marginBottom: 2 }}>{t('draft.pick')}</div>
+                {notes.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => setNote(item)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 10,
+                      textAlign: 'left',
+                      padding: '9px 10px',
+                      borderRadius: 9,
+                      border: '1px solid var(--dsh-border, rgba(128,140,160,.2))',
+                      background: item.color || 'transparent',
+                      color: 'inherit',
+                      cursor: 'pointer',
+                      fontSize: 12,
+                      fontFamily: 'inherit',
+                    }}
+                  >
+                    <span
+                      style={{
+                        flex: 1,
+                        minWidth: 0,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {plainText(item) || t('draft.untitled')}
+                    </span>
+                    <span style={{ opacity: 0.55, fontSize: 11, flexShrink: 0 }}>
+                      {t('draft.edit')}
+                    </span>
+                  </button>
+                ))}
               </div>
             )}
           </div>
@@ -166,6 +227,19 @@ export function QuickDraftButton() {
       ) : null}
     </>
   );
+}
+
+const hintStyle = { fontSize: 12, opacity: 0.66, lineHeight: 1.8 };
+
+/** 列表里只需要一眼能认出来的纯文本标题，不渲染富文本。 */
+function plainText(item) {
+  const html = typeof item?.html === 'string' ? item.html : '';
+  const text = html
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return text.slice(0, 60);
 }
 
 export default QuickDraftButton;
