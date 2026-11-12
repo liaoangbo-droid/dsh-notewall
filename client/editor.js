@@ -816,6 +816,13 @@ export function NoteEditor(props) {
 
   const noteId = note && typeof note.id === 'string' ? note.id : null;
 
+  /**
+   * 编辑页"全屏"：不是浏览器 Fullscreen API，而是让面板撑满便签墙的浮层容器
+   * （.sw-overlay 本身是 fixed inset:0，面板默认 520×560 居中，展开时铺满它）。
+   * 这样不申请浏览器权限，也不影响任何其他浮层。
+   */
+  const [expanded, setExpanded] = useState(false);
+
   // --- refs ---------------------------------------------------------------
   const editorRef = useRef(null);
   const canvasWrapRef = useRef(null);
@@ -1577,24 +1584,55 @@ export function NoteEditor(props) {
   const InkPad = inkOpen ? inkComponentRef.current : null;
 
   return (
-    <div style={s.root} role="dialog" aria-label={t('editor.title')} onKeyDown={handleKeyDown}>
+    <div
+      style={expanded
+        ? {
+            ...s.root,
+            // 用 fixed 铺满而不是 width/height:100% —— 父层 .sw-overlay 带 24px padding，
+            // 百分比尺寸只能撑到 padding 内边界，四周会留白。
+            position: 'fixed',
+            inset: 0,
+            width: 'auto',
+            maxWidth: 'none',
+            height: 'auto',
+            maxHeight: 'none',
+            borderRadius: 0,
+          }
+        : s.root}
+      role="dialog"
+      aria-label={t('editor.title')}
+      onKeyDown={handleKeyDown}
+    >
       <div style={s.header}>
         <div style={s.title}>
           {t('editor.title')}
           <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6, marginLeft: 8, whiteSpace: 'nowrap' }}>{t('editor.autoSave')}</span>
         </div>
 
-        <button
-          type="button"
-          style={{ ...s.closeButton, display: "inline-flex", alignItems: "center", gap: 6, paddingRight: 10 }}
-          title={t('editor.saveHint')}
-          aria-label={t('editor.saveAndClose')}
-          onMouseDown={preventDefault}
-          onClick={handleClose}
-        >
-          <span aria-hidden="true" style={{ fontSize: 18, lineHeight: 1 }}>×</span>
-          <span style={{ fontSize: 12, opacity: 0.75, whiteSpace: "nowrap" }}>{t('editor.saveAndClose')}</span>
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 2, flexShrink: 0 }}>
+          <button
+            type="button"
+            style={{ ...s.closeButton, padding: '6px 8px' }}
+            title={t(expanded ? 'editor.collapse' : 'editor.expand')}
+            aria-label={t(expanded ? 'editor.collapse' : 'editor.expand')}
+            onMouseDown={preventDefault}
+            onClick={() => setExpanded((value) => !value)}
+          >
+            <span aria-hidden="true" style={{ fontSize: 15, lineHeight: 1 }}>{expanded ? '⇲' : '⛶'}</span>
+          </button>
+
+          <button
+            type="button"
+            style={{ ...s.closeButton, display: "inline-flex", alignItems: "center", gap: 6, paddingRight: 10 }}
+            title={t('editor.saveHint')}
+            aria-label={t('editor.saveAndClose')}
+            onMouseDown={preventDefault}
+            onClick={handleClose}
+          >
+            <span aria-hidden="true" style={{ fontSize: 18, lineHeight: 1 }}>×</span>
+            <span style={{ fontSize: 12, opacity: 0.75, whiteSpace: "nowrap" }}>{t('editor.saveAndClose')}</span>
+          </button>
+        </div>
       </div>
 
       <div style={s.toolbar}>
