@@ -15,7 +15,7 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { describeNote, normalizeSessionList, noteToText } from './session-bridge.js';
 import { t } from './strings.js';
-import { QuickDraftButton, DraftPane, DRAFT_KIND } from './quick-draft.js';
+import { QuickDraftButton, DraftPane, DraftTitle, DRAFT_KIND } from './quick-draft.js';
 import { api, readFileAsDataUrl } from './api';
 import { injectStyles } from './theme';
 import { StickyWall } from './wall';
@@ -653,6 +653,14 @@ function applyImpl(ctx) {
       ctx.slots.register(
         { name: 'sidebar.right.pane.tab', key: DRAFT_KIND },
         DraftPane,
+      ),
+    );
+
+    // tab 头：内核把右栏 tab 拆成 body + title 两个插槽，只给 body 时 tab 头是空的。
+    ctx.slots.inject('sidebar.right.pane.tab.title', () =>
+      ctx.slots.register(
+        { name: 'sidebar.right.pane.tab.title', key: DRAFT_KIND },
+        DraftTitle,
       ),
     );
   });

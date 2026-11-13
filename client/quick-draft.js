@@ -253,6 +253,16 @@ export function QuickDraftButton(props) {
  * 它是 slot `sidebar.right.pane.tab` 的 body —— 内核右栏是布局里真实的一栏，
  * 内容占进来之后会话正文会被推挤让位，这正是自绘浮层做不到的地方。
  */
+/**
+ * 右栏 tab 的标题（chip）。
+ *
+ * 内核把右栏 tab 拆成 body 与 title 两个插槽 —— better-sidebar 两个都注册。
+ * 只给 body 不给 title，tab 头就是空的，内核不会把它当成正常的停靠页。
+ */
+export function DraftTitle() {
+  return <span style={{ fontSize: 12 }}>{t('draft.title')}</span>;
+}
+
 export function DraftPane() {
   const [note, setNote] = useState(null);
   const [notes, setNotes] = useState([]);

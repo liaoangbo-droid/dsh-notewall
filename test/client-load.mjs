@@ -179,9 +179,9 @@ check('effects registered', effects >= 2, effects);
 loaded.apply(fakeCtx);
 check('styles not duplicated on re-apply', styleTags.length === 1, styleTags.length);
 // 5 个 slot（main / sidebar.panellist / shell.overlay / header.quick-draft /
-// sidebar.right.pane.tab）× apply 两次 = 10。
+// sidebar.right.pane.tab / .title）× apply 两次 = 12。
 // 数量变了先确认是不是新增了插槽，再改这里，别直接放宽断言。
-check('re-apply registers another set (expected: ctx owns disposal)', registrations.length === 10, registrations.length);
+check('re-apply registers another set (expected: ctx owns disposal)', registrations.length === 12, registrations.length);
 
 console.log(failures === 0 ? '\nALL PASS' : `\n${failures} FAILURE(S)`);
 process.exit(failures === 0 ? 0 : 1);
