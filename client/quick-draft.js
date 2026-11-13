@@ -54,7 +54,7 @@ export function QuickDraftButton(props) {
       const result = await api.note({ op: 'create', text: '' });
       const created = result?.note ?? null;
       if (!aliveRef.current) return;
-      if (created) setNote(created);
+      if (created) { setNote(created); setOpen(false); }
       else setError(t('draft.createFailed'));
     } catch (err) {
       if (aliveRef.current) setError(err?.message ?? String(err));
@@ -113,7 +113,7 @@ export function QuickDraftButton(props) {
         aria-pressed={open}
         onClick={() => {
           if (!external) {
-            setOpen((value) => !value);
+            if (note) { setNote(null); void loadNotes(); setOpen(false); } else setOpen((value) => !value);
             return;
           }
           try {
@@ -206,7 +206,7 @@ export function QuickDraftButton(props) {
                   <button
                     key={item.id}
                     type="button"
-                    onClick={() => setNote(item)}
+                    onClick={() => { setNote(item); setOpen(false); }}
                     style={{
                       display: 'flex',
                       alignItems: 'center',
@@ -243,6 +243,13 @@ export function QuickDraftButton(props) {
           </div>
         </aside>
       ) : null}
+      {!external && note ? (
+        <FloatEditor
+          note={note}
+          onChange={saveDraft}
+          onClose={() => { setNote(null); void loadNotes(); }}
+        />
+      ) : null}
     </>
   );
 }
@@ -253,6 +260,77 @@ export function QuickDraftButton(props) {
  * 它是 slot `sidebar.right.pane.tab` 的 body —— 内核右栏是布局里真实的一栏，
  * 内容占进来之后会话正文会被推挤让位，这正是自绘浮层做不到的地方。
  */
+const FLOAT_W = 540;
+
+function clamp(value, min, max) {
+  return Math.min(Math.max(value, min), max);
+}
+
+function defaultFloatPos() {
+  if (typeof window === 'undefined') return { x: 160, y: 80 };
+  return {
+    x: Math.max(12, Math.round((window.innerWidth - FLOAT_W) / 2)),
+    y: Math.max(12, Math.round((window.innerHeight - 620) / 2)),
+  };
+}
+
+/**
+ * 可拖动的浮动编辑窗口。
+ *
+ * 在抽屉里点某张便签后，关掉列表、把编辑器换成这个浮窗。浮层不参与布局，
+ * 所以不会挡住正文的阅读位置（用户可以自己拖开），也不用去和内核右栏较劲。
+ */
+export function FloatEditor({ note, onChange, onClose }) {
+  const [pos, setPos] = useState(defaultFloatPos);
+  const dragRef = useRef(null);
+
+  const onGripDown = useCallback((event) => {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    dragRef.current = { x: event.clientX, y: event.clientY, pos };
+    const onMove = (moveEvent) => {
+      const start = dragRef.current;
+      if (!start) return;
+      setPos({
+        x: clamp(start.pos.x + moveEvent.clientX - start.x, 0, Math.max(0, window.innerWidth - 120)),
+        y: clamp(start.pos.y + moveEvent.clientY - start.y, 0, Math.max(0, window.innerHeight - 60)),
+      });
+    };
+    const onUp = () => {
+      dragRef.current = null;
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  }, [pos]);
+
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        left: pos.x,
+        top: pos.y,
+        zIndex: 60,
+        borderRadius: 16,
+        boxShadow: '0 18px 48px rgba(8, 12, 24, .28)',
+      }}
+    >
+      <div
+        onPointerDown={onGripDown}
+        title={t('draft.drag')}
+        style={{
+          height: 14,
+          cursor: 'grab',
+          borderRadius: '16px 16px 0 0',
+          background: 'rgba(128,140,160,.16)',
+        }}
+      />
+      <NoteEditor note={note} onChange={onChange} onClose={onClose} />
+    </div>
+  );
+}
+
 export function DraftPane() {
   const [note, setNote] = useState(null);
   const [notes, setNotes] = useState([]);
