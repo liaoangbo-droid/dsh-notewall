@@ -15,6 +15,37 @@ import { t } from './strings.js';
 
 // 和编辑器面板同宽：NoteEditor 内部写死 520，抽屉比它窄会横向溢出。
 /** 草稿 tab 的类型名：注册 tab 类型、开 tab、注册面板都用它。 */
+/**
+ * 让会话主区域给抽屉腾地方。
+ *
+ * 内核右栏是覆盖式的（实测不会挤压正文），也没有稳定的 DOM 标识可以挂样式。
+ * 唯一稳定的锚点是输入框的 `.dsh-composer` —— 从它向上找到最外层的会话列，
+ * 临时加右侧内边距。整个动作可逆，找不到锚点就什么都不做。
+ */
+function makeRoom(px) {
+  if (typeof document === 'undefined') return () => {};
+  const composer = document.querySelector('.dsh-composer');
+  if (composer === null) return () => {};
+
+  let node = composer.parentElement;
+  const half = (typeof window === 'undefined' ? 1200 : window.innerWidth) * 0.5;
+  while (node !== null && node !== document.body) {
+    if (node.clientWidth >= half && node.clientWidth > 240) break;
+    node = node.parentElement;
+  }
+  if (node === null || node === document.body) return () => {};
+
+  const prevPadding = node.style.paddingRight;
+  const prevBox = node.style.boxSizing;
+  node.style.boxSizing = 'border-box';
+  node.style.paddingRight = `${px}px`;
+
+  return () => {
+    node.style.paddingRight = prevPadding;
+    node.style.boxSizing = prevBox;
+  };
+}
+
 export const DRAFT_KIND = 'sticky-wall-draft';
 
 const PANEL_W = 560;
@@ -36,6 +67,11 @@ export function QuickDraftButton(props) {
   const external = typeof openDraft === 'function';
 
   const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    return makeRoom(PANEL_W + 24);
+  }, [open]);
   const [note, setNote] = useState(null);
   const [notes, setNotes] = useState([]);
   const [loading, setLoading] = useState(false);

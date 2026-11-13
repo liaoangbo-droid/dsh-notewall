@@ -15,7 +15,7 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { describeNote, normalizeSessionList, noteToText } from './session-bridge.js';
 import { t } from './strings.js';
-import { QuickDraftButton, DraftPane, DraftTitle, DRAFT_KIND } from './quick-draft.js';
+import { QuickDraftButton } from './quick-draft.js';
 import { api, readFileAsDataUrl } from './api';
 import { injectStyles } from './theme';
 import { StickyWall } from './wall';
@@ -520,7 +520,7 @@ function StickyWallIcon({ size = 18, active = false }) {
  * 抛错 → fiber 进入 FAILED → DSH web boot 判定「entry did not activate」整页挂死。
  * 与官方模板 templates/decoration/client.js 的 `inject: ['slots']` 一致。
  */
-export const inject = ['slots', 'sidebarRight'];
+export const inject = ['slots'];
 
 /**
  * 宿主侧的自检通道：客户端异常写进 `<dataRoot>/client-diag.log`。
@@ -616,54 +616,11 @@ function applyImpl(ctx) {
           name: 'conversation.session.header.utilities',
           id: 'sticky-wall-draft',
           order: -5,
-          inject: () => ({
-            openDraft: () => {
-              const sidebar = ctx.sidebarRight;
-              if (sidebar === undefined || typeof sidebar.openTab !== 'function') {
-                throw new Error('sidebarRight.openTab is unavailable');
-              }
-              sidebar.openTab('sticky-wall-draft');
-            },
-          }),
         },
         QuickDraftButton,
       ),
     ),
   );
-
-  // 草稿 tab 的面板内容：注册到内核右栏的 tab body 插槽。
-  // tab 类型（sidebarRightTabs）不是 inject 依赖 —— 服务名若有版本差异，
-  // 这里拿不到就只是不注册类型，绝不能因此让整个插件加载失败。
-  safeSlot('sidebar.pane.draft', () => {
-    try {
-      const tabs = ctx.get?.('sidebarRightTabs') ?? ctx.sidebarRightTabs;
-      if (tabs !== undefined && typeof tabs.register === 'function') {
-        tabs.register({
-          id: DRAFT_KIND,
-          kind: DRAFT_KIND,
-          priority: 'plugin',
-          title: () => t('draft.title'),
-        });
-      }
-    } catch (error) {
-      reportClientError('sidebar-tab-type', error);
-    }
-
-    ctx.slots.inject('sidebar.right.pane.tab', () =>
-      ctx.slots.register(
-        { name: 'sidebar.right.pane.tab', key: DRAFT_KIND },
-        DraftPane,
-      ),
-    );
-
-    // tab 头：内核把右栏 tab 拆成 body + title 两个插槽，只给 body 时 tab 头是空的。
-    ctx.slots.inject('sidebar.right.pane.tab.title', () =>
-      ctx.slots.register(
-        { name: 'sidebar.right.pane.tab.title', key: DRAFT_KIND },
-        DraftTitle,
-      ),
-    );
-  });
 
   // 右下角提醒弹框：挂在 frame 级浮层，跨面板常驻。
   safeSlot('shell.overlay', () =>
