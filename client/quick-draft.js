@@ -192,7 +192,7 @@ export function QuickDraftButton(props) {
             {note ? (
               <NoteEditor
                 note={note}
-                onClose={() => setNote(null)}
+                onClose={() => { setNote(null); void loadNotes(); }}
                 onChange={saveDraft}
               />
             ) : loading ? (
@@ -336,7 +336,7 @@ export function DraftPane() {
           {busy ? '…' : t('draft.new')}
         </button>
         {note ? (
-          <button type="button" onClick={() => setNote(null)} style={chip}>
+          <button type="button" onClick={() => { setNote(null); void loadNotes(); }} style={chip}>
             {t('draft.back')}
           </button>
         ) : null}
@@ -348,7 +348,7 @@ export function DraftPane() {
         ) : null}
 
         {note ? (
-          <NoteEditor note={note} onClose={() => setNote(null)} onChange={saveDraft} />
+          <NoteEditor note={note} onClose={() => { setNote(null); void loadNotes(); }} onChange={saveDraft} />
         ) : loading ? (
           <div style={hintStyle}>{t('draft.loading')}</div>
         ) : notes.length === 0 ? (
