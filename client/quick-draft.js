@@ -11,6 +11,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from './api.js';
 import { NoteEditor } from './editor.js';
+import { DeliverDialog } from './deliver';
 import { t } from './strings.js';
 
 // 和编辑器面板同宽：NoteEditor 内部写死 520，抽屉比它窄会横向溢出。
@@ -40,6 +41,52 @@ export function QuickDraftButton(props) {
   const [notes, setNotes] = useState([]);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [deliverTarget, setDeliverTarget] = useState(null);
+
+  const listSessions = props?.inject?.listSessions;
+  const insertToSession = props?.inject?.insertToSession;
+  const scheduleToSession = props?.inject?.scheduleToSession;
+  const canDeliver = typeof listSessions === 'function'
+    && typeof insertToSession === 'function'
+    && typeof scheduleToSession === 'function';
+
+  const openDeliver = useCallback(
+    async (target) => {
+      if (target === null || target === undefined) return;
+      setDeliverTarget({ note: target, sessions: [], busy: false, error: '', initialSessionId: '' });
+      try {
+        const list = (await listSessions()) ?? [];
+        setDeliverTarget((prev) =>
+          prev !== null && prev.note.id === target.id ? { ...prev, sessions: list } : prev,
+        );
+      } catch (err) {
+        setDeliverTarget((prev) =>
+          prev !== null && prev.note.id === target.id
+            ? { ...prev, error: String(err?.message ?? err) }
+            : prev,
+        );
+      }
+    },
+    [listSessions],
+  );
+
+  const runDeliver = useCallback(async (payload, fn) => {
+    setDeliverTarget((prev) => (prev === null ? prev : { ...prev, busy: true, error: '' }));
+    try {
+      await fn(payload);
+      setDeliverTarget((prev) =>
+        prev !== null && prev.note.id === payload.note.id ? { ...prev, busy: false } : prev,
+      );
+    } catch (err) {
+      setDeliverTarget((prev) =>
+        prev !== null && prev.note.id === payload.note.id
+          ? { ...prev, busy: false, error: String(err?.message ?? err) }
+          : prev,
+      );
+    }
+  }, []);
+
+
   const [error, setError] = useState('');
   const aliveRef = useRef(true);
 
@@ -246,8 +293,25 @@ export function QuickDraftButton(props) {
       {!external && note ? (
         <FloatEditor
           note={note}
+          onDeliver={canDeliver ? openDeliver : undefined}
           onChange={saveDraft}
           onClose={() => { setNote(null); void loadNotes(); }}
+        />
+      ) : null}
+      {deliverTarget !== null ? (
+        <DeliverDialog
+          note={deliverTarget.note}
+          sessions={deliverTarget.sessions}
+          busy={deliverTarget.busy}
+          error={deliverTarget.error}
+          initialSessionId={deliverTarget.initialSessionId}
+          onClose={() => setDeliverTarget(null)}
+          onInsert={({ note: target, session }) =>
+            runDeliver({ note: target, session }, insertToSession)
+          }
+          onSchedule={({ note: target, session, at }) =>
+            runDeliver({ note: target, session, at }, scheduleToSession)
+          }
         />
       ) : null}
     </>
@@ -281,7 +345,7 @@ function defaultFloatPos() {
  * 既醒目又不遮任何控件。拖动同时挂 mouse 与 touch —— 极空间这类内置 WebView
  * 内核偏旧，只挂 pointerdown 会完全没有反应。
  */
-export function FloatEditor({ note, onChange, onClose }) {
+export function FloatEditor({ note, onChange, onClose, onDeliver }) {
   const [pos, setPos] = useState(defaultFloatPos);
   const draggingRef = useRef(false);
 
@@ -376,7 +440,7 @@ export function FloatEditor({ note, onChange, onClose }) {
         <span>{t('draft.drag')}</span>
         <span aria-hidden="true" style={{ letterSpacing: 1 }}>⠿⠿</span>
       </div>
-      <NoteEditor note={note} onChange={onChange} onClose={onClose} />
+      <NoteEditor note={note} onChange={onChange} onClose={onClose} onDeliver={onDeliver} />
     </div>
   );
 }

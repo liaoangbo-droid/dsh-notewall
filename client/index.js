@@ -616,14 +616,11 @@ function applyImpl(ctx) {
           name: 'conversation.session.header.utilities',
           id: 'sticky-wall-draft',
           order: -5,
+          // 把墙面板用的同一组投递能力注入草稿按钮，让会话里的浮窗也能「发送到会话」。
           inject: () => ({
-            openDraft: () => {
-              const sidebar = ctx.sidebarRight;
-              if (sidebar === undefined || typeof sidebar.openTab !== 'function') {
-                throw new Error('sidebarRight.openTab is unavailable');
-              }
-              sidebar.openTab('sticky-wall-draft');
-            },
+            listSessions: actions.listSessions,
+            insertToSession: actions.insertToSession,
+            scheduleToSession: actions.scheduleToSession,
           }),
         },
         QuickDraftButton,
