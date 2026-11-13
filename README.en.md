@@ -18,6 +18,8 @@ When you're done, hit **Send to conversation** at the bottom, pick the target se
 - **⛶ Fullscreen** — expand the panel when a note gets long
 - The floating window is the same editor as the wall: rich text, inline images, drawing pad, autosave
 
+![The draft window inside a conversation](docs/draft-in-session.png)
+
 ## Scheduled delivery
 
 **A note can be a letter to a session in the future.**
