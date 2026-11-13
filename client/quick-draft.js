@@ -277,8 +277,9 @@ function defaultFloatPos() {
 /**
  * 可拖动的浮动编辑窗口。
  *
- * 拖动同时挂 mouse 与 touch 两套原生事件 —— 极空间这类内置 WebView 的
- * 内核版本偏旧，只挂 pointerdown 时会完全没有反应，所以不依赖 PointerEvent。
+ * 抓手放在编辑器标题栏中间那段空白里（左侧是标题、右侧是按钮组，中间本来就空着），
+ * 既醒目又不遮任何控件。拖动同时挂 mouse 与 touch —— 极空间这类内置 WebView
+ * 内核偏旧，只挂 pointerdown 会完全没有反应。
  */
 export function FloatEditor({ note, onChange, onClose }) {
   const [pos, setPos] = useState(defaultFloatPos);
@@ -347,21 +348,31 @@ export function FloatEditor({ note, onChange, onClose }) {
         onTouchStart={beginDrag}
         title={t('draft.drag')}
         style={{
+          position: 'absolute',
+          top: 7,
+          left: '33%',
+          right: '23%',
           height: 28,
+          zIndex: 5,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
+          gap: 8,
           cursor: 'move',
           userSelect: 'none',
-          borderRadius: '16px 16px 0 0',
-          background: 'rgba(128, 140, 160, .18)',
+          WebkitUserSelect: 'none',
+          borderRadius: 8,
+          border: '1px dashed rgba(128, 140, 160, .5)',
+          background: 'rgba(128, 140, 160, .10)',
           color: 'inherit',
           fontSize: 11,
-          letterSpacing: 2,
-          opacity: 0.75,
+          lineHeight: 1,
+          opacity: 0.85,
+          whiteSpace: 'nowrap',
         }}
       >
-        ⠿ ⠿ ⠿
+        <span aria-hidden="true" style={{ letterSpacing: 2 }}>⠿⠿⠿</span>
+        <span>{t('draft.drag')}</span>
       </div>
       <NoteEditor note={note} onChange={onChange} onClose={onClose} />
     </div>
