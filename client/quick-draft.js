@@ -350,14 +350,15 @@ export function FloatEditor({ note, onChange, onClose }) {
         style={{
           position: 'absolute',
           top: 7,
-          left: '33%',
-          right: '23%',
+          left: '50%',
+          transform: 'translateX(-50%)',
           height: 28,
+          padding: '0 10px',
           zIndex: 5,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          gap: 8,
+          gap: 7,
           cursor: 'move',
           userSelect: 'none',
           WebkitUserSelect: 'none',
@@ -371,8 +372,9 @@ export function FloatEditor({ note, onChange, onClose }) {
           whiteSpace: 'nowrap',
         }}
       >
-        <span aria-hidden="true" style={{ letterSpacing: 2 }}>⠿⠿⠿</span>
+        <span aria-hidden="true" style={{ letterSpacing: 1 }}>⠿⠿</span>
         <span>{t('draft.drag')}</span>
+        <span aria-hidden="true" style={{ letterSpacing: 1 }}>⠿⠿</span>
       </div>
       <NoteEditor note={note} onChange={onChange} onClose={onClose} />
     </div>
