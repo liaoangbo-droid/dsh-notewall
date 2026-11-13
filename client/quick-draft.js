@@ -12,6 +12,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from './api.js';
 import { NoteEditor } from './editor.js';
 import { DeliverDialog } from './deliver';
+import { deliverBridge } from './bridge.js';
 import { t } from './strings.js';
 
 // 和编辑器面板同宽：NoteEditor 内部写死 520，抽屉比它窄会横向溢出。
@@ -43,9 +44,9 @@ export function QuickDraftButton(props) {
   const [busy, setBusy] = useState(false);
   const [deliverTarget, setDeliverTarget] = useState(null);
 
-  const listSessions = props?.inject?.listSessions;
-  const insertToSession = props?.inject?.insertToSession;
-  const scheduleToSession = props?.inject?.scheduleToSession;
+  const listSessions = deliverBridge.listSessions;
+  const insertToSession = deliverBridge.insertToSession;
+  const scheduleToSession = deliverBridge.scheduleToSession;
   const canDeliver = typeof listSessions === 'function'
     && typeof insertToSession === 'function'
     && typeof scheduleToSession === 'function';

@@ -16,6 +16,7 @@ import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'r
 import { describeNote, normalizeSessionList, noteToText } from './session-bridge.js';
 import { t } from './strings.js';
 import { QuickDraftButton, DraftPane, DRAFT_KIND } from './quick-draft.js';
+import { bindDeliver } from './bridge.js';
 import { api, readFileAsDataUrl } from './api';
 import { injectStyles } from './theme';
 import { StickyWall } from './wall';
@@ -609,6 +610,9 @@ function applyImpl(ctx) {
   // 会话头部草稿按钮：挂在会话标题栏右侧工具区，点开就是内核右栏里的草稿 tab。
   // 走 ctx.sidebarRight.openTab 而不是自绘浮层 —— 只有真占进右栏，正文才会被推挤让位。
   // openTab/服务不可用时抛错，按钮组件自己 catch 掉并退回自绘抽屉。
+  // 草稿按钮与墙面板同 bundle，用模块级桥接把投递能力送过去。
+  bindDeliver(actions);
+
   safeSlot('header.quick-draft', () =>
     ctx.slots.inject('conversation.session.header.utilities', () =>
       ctx.slots.register(
