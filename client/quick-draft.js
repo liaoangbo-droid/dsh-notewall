@@ -277,32 +277,58 @@ function defaultFloatPos() {
 /**
  * 可拖动的浮动编辑窗口。
  *
- * 在抽屉里点某张便签后，关掉列表、把编辑器换成这个浮窗。浮层不参与布局，
- * 所以不会挡住正文的阅读位置（用户可以自己拖开），也不用去和内核右栏较劲。
+ * 拖动同时挂 mouse 与 touch 两套原生事件 —— 极空间这类内置 WebView 的
+ * 内核版本偏旧，只挂 pointerdown 时会完全没有反应，所以不依赖 PointerEvent。
  */
 export function FloatEditor({ note, onChange, onClose }) {
   const [pos, setPos] = useState(defaultFloatPos);
-  const dragRef = useRef(null);
+  const draggingRef = useRef(false);
 
-  const onGripDown = useCallback((event) => {
-    if (event.button !== 0) return;
+  const beginDrag = useCallback((event) => {
+    const point = (event.touches && event.touches[0])
+      || (event.changedTouches && event.changedTouches[0])
+      || event;
+    if (point === undefined || typeof point.clientX !== 'number') return;
+    if (event.button !== undefined && event.button !== 0) return;
+
     event.preventDefault();
-    dragRef.current = { x: event.clientX, y: event.clientY, pos };
+    event.stopPropagation();
+    draggingRef.current = true;
+
+    const startX = point.clientX;
+    const startY = point.clientY;
+    const base = pos;
+
     const onMove = (moveEvent) => {
-      const start = dragRef.current;
-      if (!start) return;
+      if (!draggingRef.current) return;
+      const moved = (moveEvent.touches && moveEvent.touches[0])
+        || (moveEvent.changedTouches && moveEvent.changedTouches[0])
+        || moveEvent;
+      if (moved === undefined || typeof moved.clientX !== 'number') return;
+      if (moveEvent.cancelable) moveEvent.preventDefault();
+
+      const maxX = Math.max(0, window.innerWidth - 140);
+      const maxY = Math.max(0, window.innerHeight - 70);
       setPos({
-        x: clamp(start.pos.x + moveEvent.clientX - start.x, 0, Math.max(0, window.innerWidth - 120)),
-        y: clamp(start.pos.y + moveEvent.clientY - start.y, 0, Math.max(0, window.innerHeight - 60)),
+        x: clamp(base.x + moved.clientX - startX, 0, maxX),
+        y: clamp(base.y + moved.clientY - startY, 0, maxY),
       });
     };
+
     const onUp = () => {
-      dragRef.current = null;
-      window.removeEventListener('pointermove', onMove);
-      window.removeEventListener('pointerup', onUp);
+      draggingRef.current = false;
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      document.removeEventListener('touchmove', onMove);
+      document.removeEventListener('touchend', onUp);
+      document.removeEventListener('touchcancel', onUp);
     };
-    window.addEventListener('pointermove', onMove);
-    window.addEventListener('pointerup', onUp);
+
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+    document.addEventListener('touchmove', onMove, { passive: false });
+    document.addEventListener('touchend', onUp);
+    document.addEventListener('touchcancel', onUp);
   }, [pos]);
 
   return (
@@ -317,15 +343,26 @@ export function FloatEditor({ note, onChange, onClose }) {
       }}
     >
       <div
-        onPointerDown={onGripDown}
+        onMouseDown={beginDrag}
+        onTouchStart={beginDrag}
         title={t('draft.drag')}
         style={{
-          height: 14,
-          cursor: 'grab',
+          height: 28,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          cursor: 'move',
+          userSelect: 'none',
           borderRadius: '16px 16px 0 0',
-          background: 'rgba(128,140,160,.16)',
+          background: 'rgba(128, 140, 160, .18)',
+          color: 'inherit',
+          fontSize: 11,
+          letterSpacing: 2,
+          opacity: 0.75,
         }}
-      />
+      >
+        ⠿ ⠿ ⠿
+      </div>
       <NoteEditor note={note} onChange={onChange} onClose={onClose} />
     </div>
   );
