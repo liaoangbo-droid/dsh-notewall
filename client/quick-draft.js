@@ -75,9 +75,11 @@ export function QuickDraftButton(props) {
     setDeliverTarget((prev) => (prev === null ? prev : { ...prev, busy: true, error: '' }));
     try {
       await fn(payload);
-      setDeliverTarget((prev) =>
-        prev !== null && prev.note.id === payload.note.id ? { ...prev, busy: false } : prev,
-      );
+      // 发送成功后：收起选择会话的弹窗，并关掉正在编辑的便签浮窗。
+      // loadNotes 声明在本组件靠后的位置，这里按运行时绑定取用（依赖数组不加它，避免 TDZ）。
+      setDeliverTarget(null);
+      setNote(null);
+      void loadNotes();
     } catch (err) {
       setDeliverTarget((prev) =>
         prev !== null && prev.note.id === payload.note.id
